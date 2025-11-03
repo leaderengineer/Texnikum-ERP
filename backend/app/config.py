@@ -3,7 +3,7 @@ from typing import List
 
 
 class Settings(BaseSettings):
-    # Database
+    # Database (Railway PostgreSQL uchun)
     DATABASE_URL: str = "sqlite:///./texnikum_erp.db"
     
     # JWT

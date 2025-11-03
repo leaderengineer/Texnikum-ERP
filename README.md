@@ -139,6 +139,21 @@ Backend `http://localhost:8000` da ishga tushadi.
 
 Batafsil ma'lumot uchun `backend/README.md` ni ko'ring.
 
+### Railway Deployment
+
+Backend'ni Railway'da deploy qilish uchun `backend/DEPLOYMENT.md` ni ko'ring.
+
+**Tezkor qadamlar:**
+1. Railway'ga kirish va GitHub repo'ni ulash
+2. PostgreSQL database qo'shish
+3. Environment variables sozlash
+4. Deploy!
+
+API URL oling va frontend `.env` ga qo'shing:
+```
+VITE_API_BASE_URL=https://your-backend.railway.app/api
+```
+
 ## Keyingi qadamlar
 
 1. ✅ Backend API yaratish (FastAPI)
