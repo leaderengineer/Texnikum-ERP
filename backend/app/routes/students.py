@@ -1,0 +1,119 @@
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.models.user import User
+from app.models.student import Student
+from app.schemas.student import StudentCreate, StudentUpdate, StudentResponse
+from app.auth import get_current_user, get_current_active_admin
+
+router = APIRouter()
+
+
+@router.get("/", response_model=List[StudentResponse])
+async def get_students(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
+    group: Optional[str] = None,
+    department: Optional[str] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Barcha talabalar ro'yxati"""
+    query = db.query(Student)
+    
+    if group:
+        query = query.filter(Student.group == group)
+    if department:
+        query = query.filter(Student.department == department)
+    if status:
+        query = query.filter(Student.status == status)
+    
+    students = query.offset(skip).limit(limit).all()
+    return students
+
+
+@router.get("/{student_id}", response_model=StudentResponse)
+async def get_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Talaba ma'lumotlari"""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return student
+
+
+@router.get("/group/{group}", response_model=List[StudentResponse])
+async def get_students_by_group(
+    group: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Guruh bo'yicha talabalar"""
+    students = db.query(Student).filter(Student.group == group).all()
+    return students
+
+
+@router.post("/", response_model=StudentResponse)
+async def create_student(
+    student_data: StudentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin),
+):
+    """Yangi talaba qo'shish"""
+    # Email va student_id tekshirish
+    existing_email = db.query(Student).filter(Student.email == student_data.email).first()
+    if existing_email:
+        raise HTTPException(status_code=400, detail="Email already exists")
+    
+    existing_id = db.query(Student).filter(Student.student_id == student_data.student_id).first()
+    if existing_id:
+        raise HTTPException(status_code=400, detail="Student ID already exists")
+    
+    student = Student(**student_data.model_dump())
+    db.add(student)
+    db.commit()
+    db.refresh(student)
+    return student
+
+
+@router.put("/{student_id}", response_model=StudentResponse)
+async def update_student(
+    student_id: int,
+    student_data: StudentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin),
+):
+    """Talaba ma'lumotlarini yangilash"""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    update_data = student_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(student, field, value)
+    
+    db.commit()
+    db.refresh(student)
+    return student
+
+
+@router.delete("/{student_id}")
+async def delete_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin),
+):
+    """Talabani o'chirish"""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    db.delete(student)
+    db.commit()
+    return {"message": "Student deleted successfully"}
+

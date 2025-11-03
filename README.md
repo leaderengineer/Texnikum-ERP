@@ -105,10 +105,44 @@ Development uchun:
 - **Admin**: `admin@example.com` (istalgan parol, 6+ belgi)
 - **O'qituvchi**: `teacher@example.com` (istalgan parol, 6+ belgi)
 
+## Backend
+
+Backend FastAPI asosida yaratilgan va `backend/` papkasida joylashgan.
+
+### Backend o'rnatish
+
+```bash
+cd backend
+
+# Virtual environment yaratish
+python -m venv venv
+venv\Scripts\activate  # Windows
+# yoki
+source venv/bin/activate  # Linux/Mac
+
+# Dependencies o'rnatish
+pip install -r requirements.txt
+
+# Database initializatsiya
+python init_db.py
+
+# Server ishga tushirish
+python run.py
+```
+
+Backend `http://localhost:8000` da ishga tushadi.
+
+### API Dokumentatsiya
+
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+Batafsil ma'lumot uchun `backend/README.md` ni ko'ring.
+
 ## Keyingi qadamlar
 
-1. Backend API yaratish (Node.js/Express yoki boshqa)
-2. Haqiqiy authentication integratsiyasi
+1. ✅ Backend API yaratish (FastAPI)
+2. ✅ Haqiqiy authentication integratsiyasi
 3. Real-time updates (WebSocket)
 4. Fayl yuklash funksiyasi
 5. Eksport/Import funksiyalari
