@@ -55,7 +55,7 @@ export function Attendance() {
         
         const newAttendance = students.map((student) => ({
           id: student.id,
-          studentName: `${student.first_name} ${student.last_name}`,
+          studentName: `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Unknown',
           studentId: student.student_id || '',
           group: selectedGroup,
           status: 'present',
@@ -67,10 +67,10 @@ export function Attendance() {
         // Backend formatidan frontend formatiga o'tkazish
         const formattedAttendance = attendanceData.map((item) => ({
           id: item.student_id,
-          studentName: item.student?.first_name && item.student?.last_name 
+          studentName: item.student_name || (item.student?.first_name && item.student?.last_name 
             ? `${item.student.first_name} ${item.student.last_name}` 
-            : 'Unknown',
-          studentId: item.student?.student_id || '',
+            : 'Unknown'),
+          studentId: item.student_student_id || item.student?.student_id || '',
           group: item.group || selectedGroup,
           status: item.status || 'present',
           time: item.time || '-',
