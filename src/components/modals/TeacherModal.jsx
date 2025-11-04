@@ -84,6 +84,11 @@ export function TeacherModal({ teacher, onClose }) {
 
   const onSubmit = async (data) => {
     try {
+      // Status'ni to'g'ri formatlash
+      const normalizedStatus = data.status === 'active' || data.status === 'Active' || data.status === true
+        ? 'active'
+        : 'inactive';
+      
       // Backend API formatiga o'tkazish
       const payload = {
         first_name: data.firstName,
@@ -91,8 +96,10 @@ export function TeacherModal({ teacher, onClose }) {
         email: data.email,
         phone: data.phone || '',
         department: data.department,
-        status: data.status === 'active' ? 'active' : 'inactive',
+        status: normalizedStatus,
       };
+      
+      console.log('Saving teacher with payload:', payload); // Debug uchun
 
       if (teacher) {
         await teachersAPI.update(teacher.id, payload);

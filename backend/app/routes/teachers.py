@@ -127,7 +127,11 @@ async def update_teacher(
     # Teacher field'larini yangilash
     for field, value in update_data.items():
         if field in ['email', 'phone', 'department', 'status']:
-            setattr(teacher, field, value)
+            # Status'ni to'g'ri formatlash
+            if field == 'status' and value:
+                setattr(teacher, field, str(value).lower())
+            else:
+                setattr(teacher, field, value)
     
     # User ma'lumotlarini yangilash (first_name, last_name, email)
     if teacher.user:
