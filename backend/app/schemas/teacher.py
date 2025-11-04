@@ -20,6 +20,8 @@ class TeacherCreate(TeacherBase):
 
 
 class TeacherUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     department: Optional[str] = None

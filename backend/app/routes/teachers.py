@@ -123,13 +123,27 @@ async def update_teacher(
         raise HTTPException(status_code=404, detail="Teacher not found")
     
     update_data = teacher_data.model_dump(exclude_unset=True)
+    
+    # Teacher field'larini yangilash
     for field, value in update_data.items():
         if field in ['email', 'phone', 'department', 'status']:
             setattr(teacher, field, value)
     
-    # Agar User ma'lumotlari ham yangilanishi kerak bo'lsa
-    if teacher.user and 'email' in update_data:
-        teacher.user.email = update_data['email']
+    # User ma'lumotlarini yangilash (first_name, last_name, email)
+    if teacher.user:
+        if 'first_name' in update_data:
+            teacher.user.first_name = update_data['first_name']
+        if 'last_name' in update_data:
+            teacher.user.last_name = update_data['last_name']
+        if 'email' in update_data:
+            # Email uniqueness tekshirish
+            existing_user = db.query(User).filter(
+                User.email == update_data['email'],
+                User.id != teacher.user.id
+            ).first()
+            if existing_user:
+                raise HTTPException(status_code=400, detail="Email already exists in users")
+            teacher.user.email = update_data['email']
     
     db.commit()
     db.refresh(teacher)
