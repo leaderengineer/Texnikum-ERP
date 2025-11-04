@@ -45,12 +45,14 @@ if %errorlevel% neq 0 (
 
 REM Dependencies o'rnatish
 echo [INFO] Dependencies o'rnatilmoqda...
+echo [INFO] SQLite uchun asosiy dependencies o'rnatilmoqda...
 pip install -r requirements.txt
 if %errorlevel% neq 0 (
     echo [XATOLIK] Dependencies o'rnatishda xatolik!
     pause
     exit /b 1
 )
+echo [OK] Dependencies muvaffaqiyatli o'rnatildi
 
 REM Database initializatsiya
 echo [INFO] Database initializatsiya qilinmoqda...

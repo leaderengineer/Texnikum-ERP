@@ -1,0 +1,4 @@
+# PostgreSQL uchun qo'shimcha dependencies
+# Bu fayl faqat production (Railway, Render) uchun
+psycopg2-binary==2.9.10
+

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X } from 'lucide-react';
+import { X, Search, Loader2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
@@ -21,12 +21,17 @@ const teacherSchema = z.object({
 export function TeacherModal({ teacher, onClose }) {
   const [departments, setDepartments] = useState([]);
   const [loadingDepartments, setLoadingDepartments] = useState(true);
+  const [jshshir, setJshshir] = useState('');
+  const [loadingJshshir, setLoadingJshshir] = useState(false);
+  const [jshshirError, setJshshirError] = useState('');
   
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
+    setValue,
+    watch,
   } = useForm({
     resolver: zodResolver(teacherSchema),
     defaultValues: teacher || {
@@ -63,6 +68,75 @@ export function TeacherModal({ teacher, onClose }) {
     
     loadDepartments();
   }, []);
+
+  // JSHSHIR raqamini tekshirish va ma'lumotlarni yuklash
+  const handleJshshirSearch = async () => {
+    if (!jshshir || jshshir.length !== 14 || !/^\d+$/.test(jshshir)) {
+      setJshshirError('JSHSHIR raqami 14 xonali raqam bo\'lishi kerak');
+      return;
+    }
+
+    try {
+      setLoadingJshshir(true);
+      setJshshirError('');
+      
+      const response = await teachersAPI.getByJshshir(jshshir);
+      const personData = response.data?.data;
+      
+      if (personData) {
+        // Ma'lumotlarni formaga to'ldirish
+        // Ism va familiya (agar API'dan kelgan bo'lsa)
+        if (personData.first_name) {
+          setValue('firstName', personData.first_name);
+        }
+        if (personData.last_name) {
+          setValue('lastName', personData.last_name);
+        }
+        
+        // Agar ism va familiya bo'sh bo'lsa, demo xabar berish
+        if (!personData.first_name && !personData.last_name) {
+          // JSHSHIR raqamidan chiqarilgan ma'lumotlar
+          const birthDate = personData.birth_date_formatted || personData.birth_date;
+          const gender = personData.gender_uz || personData.gender;
+          const region = personData.region || personData.address;
+          
+          // Foydalanuvchiga xabar berish
+          alert(
+            `JSHSHIR raqami topildi!\n\n` +
+            `Tug'ilgan sana: ${birthDate}\n` +
+            `Jins: ${gender}\n` +
+            `Viloyat: ${region}\n\n` +
+            `Eslatma: Ism, familiya va to'liq manzil ma'lumotlari uchun haqiqiy API integratsiyasi kerak.\n` +
+            `Iltimos, ism va familiyani qo'lda kiriting.`
+          );
+        } else {
+          // Email avtomatik yaratish (ism.familiya@example.com)
+          if (personData.first_name && personData.last_name) {
+            const emailBase = `${personData.first_name.toLowerCase()}.${personData.last_name.toLowerCase()}`;
+            const email = `${emailBase.replace(/\s+/g, '')}@example.com`;
+            setValue('email', email);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('JSHSHIR ma\'lumotlarini yuklashda xatolik:', error);
+      setJshshirError(
+        error.response?.data?.detail || 
+        error.message || 
+        'JSHSHIR bo\'yicha ma\'lumot topilmadi. Iltimos, ma\'lumotlarni qo\'lda kiriting.'
+      );
+    } finally {
+      setLoadingJshshir(false);
+    }
+  };
+
+  // JSHSHIR input'da Enter bosilganda
+  const handleJshshirKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleJshshirSearch();
+    }
+  };
 
   useEffect(() => {
     if (teacher) {
@@ -162,6 +236,51 @@ export function TeacherModal({ teacher, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-4 sm:p-6 space-y-4">
+          {/* JSHSHIR input - faqat yangi o'qituvchi qo'shishda */}
+          {!teacher && (
+            <div className="space-y-2 p-4 bg-primary/5 rounded-lg border border-primary/20">
+              <Label htmlFor="jshshir">JSHSHIR raqami (ixtiyoriy - avtomatik to'ldirish)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="jshshir"
+                  type="text"
+                  placeholder="12345678901234"
+                  value={jshshir}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 14);
+                    setJshshir(value);
+                    setJshshirError('');
+                  }}
+                  onKeyPress={handleJshshirKeyPress}
+                  maxLength={14}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleJshshirSearch}
+                  disabled={loadingJshshir || jshshir.length !== 14}
+                  className="shrink-0"
+                >
+                  {loadingJshshir ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Search className="h-4 w-4" />
+                  )}
+                  <span className="ml-2 hidden sm:inline">Qidirish</span>
+                </Button>
+              </div>
+              {jshshirError && (
+                <p className="text-sm text-destructive">{jshshirError}</p>
+              )}
+              {jshshir && jshshir.length === 14 && !jshshirError && (
+                <p className="text-xs text-muted-foreground">
+                  JSHSHIR raqami kiritildi. "Qidirish" tugmasini bosing yoki Enter tugmasini bosing.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">Ism *</Label>
