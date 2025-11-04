@@ -12,6 +12,7 @@ import useAuthStore from './store/authStore';
 const Dashboard = lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })));
 const Teachers = lazy(() => import('./pages/admin/Teachers').then(module => ({ default: module.Teachers })));
 const Students = lazy(() => import('./pages/admin/Students').then(module => ({ default: module.Students })));
+const Groups = lazy(() => import('./pages/admin/Groups').then(module => ({ default: module.Groups })));
 const Schedules = lazy(() => import('./pages/admin/Schedules').then(module => ({ default: module.Schedules })));
 const Attendance = lazy(() => import('./pages/admin/Attendance').then(module => ({ default: module.Attendance })));
 const Library = lazy(() => import('./pages/admin/Library').then(module => ({ default: module.Library })));
@@ -71,6 +72,16 @@ function App() {
               <ProtectedRoute>
                 <DashboardLayout>
                   <Students />
+                </DashboardLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/groups"
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <DashboardLayout>
+                  <Groups />
                 </DashboardLayout>
               </ProtectedRoute>
             }

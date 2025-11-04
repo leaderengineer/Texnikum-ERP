@@ -12,6 +12,7 @@ import {
   Moon,
   Sun,
   X,
+  UserCircle,
 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { cn } from '../../lib/utils';
@@ -22,6 +23,7 @@ const adminMenuItems = [
   { icon: LayoutDashboard, label: 'Bosh sahifa', path: '/dashboard' },
   { icon: Users, label: 'O\'qituvchilar', path: '/teachers' },
   { icon: GraduationCap, label: 'Talabalar', path: '/students' },
+  { icon: UserCircle, label: 'Guruhlar', path: '/groups' },
   { icon: Calendar, label: 'Dars jadvallari', path: '/schedules' },
   { icon: ClipboardCheck, label: 'Davomat', path: '/attendance' },
   { icon: BookOpen, label: 'Kutubxona', path: '/library' },
