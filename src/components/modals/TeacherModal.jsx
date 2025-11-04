@@ -66,7 +66,11 @@ export function TeacherModal({ teacher, onClose }) {
 
   useEffect(() => {
     if (teacher) {
-      reset(teacher);
+      // Status'ni to'g'ri formatda o'rnatish
+      reset({
+        ...teacher,
+        status: teacher.status === 'active' || teacher.status === 'Active' ? 'active' : 'inactive',
+      });
     }
   }, [teacher, reset]);
 
@@ -88,7 +92,11 @@ export function TeacherModal({ teacher, onClose }) {
         // Create uchun password yuborish (yoki backend default yaratadi)
         await teachersAPI.create(payload);
       }
-      onClose();
+      
+      // Modal yopilgandan keyin parent component'ga xabar berish
+      if (onClose) {
+        onClose();
+      }
     } catch (error) {
       console.error('Saqlashda xatolik:', error);
       // Xatolikni to'g'ri ko'rsatish
