@@ -204,7 +204,9 @@ export function Library() {
         coverColor: 'bg-gradient-to-br from-pink-400 via-pink-500 to-red-600',
       },
     ]);
-    setLoading(false);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredBooks = books.filter((book) => {
@@ -270,18 +272,35 @@ export function Library() {
   };
 
   const handleSaveBook = async (bookData) => {
-    if (editingBook) {
-      // Update existing book
-      setBooks(books.map((b) => 
-        b.id === editingBook.id ? { ...editingBook, ...bookData } : b
-      ));
-    } else {
-      // Create new book
-      const newBook = {
-        id: Math.max(...books.map(b => b.id), 0) + 1,
-        ...bookData,
+    try {
+      // Backend API formatiga o'tkazish
+      const payload = {
+        title: bookData.title,
+        author: bookData.author,
+        isbn: bookData.isbn || '',
+        category: bookData.category || 'Boshqalar',
+        year: bookData.year || new Date().getFullYear(),
+        pages: bookData.pages || 0,
+        language: bookData.language || 'O\'zbek',
+        description: bookData.description || '',
+        total_copies: bookData.totalCopies || 0,
+        available_copies: bookData.availableCopies || 0,
+        borrowed_copies: bookData.borrowedCopies || 0,
+        has_digital: bookData.hasDigital || false,
       };
-      setBooks([...books, newBook]);
+
+      if (editingBook) {
+        await libraryAPI.update(editingBook.id, payload);
+      } else {
+        await libraryAPI.create(payload);
+      }
+      await loadBooks();
+      setIsAddModalOpen(false);
+      setEditingBook(null);
+    } catch (error) {
+      console.error('Saqlashda xatolik:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Saqlashda xatolik yuz berdi';
+      alert(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
     }
   };
 
