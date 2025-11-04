@@ -43,7 +43,7 @@ export function Students() {
         phone: student.phone || '',
         group: student.group || '',
         department: student.department || '',
-        status: student.is_active ? 'active' : 'inactive',
+        status: student.status === 'active' || student.status === 'Active' ? 'active' : 'inactive',
       }));
       
       setStudents(formattedStudents);

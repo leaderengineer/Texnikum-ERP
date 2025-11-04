@@ -85,7 +85,7 @@ export function StudentModal({ student, onClose }) {
         phone: data.phone,
         group: data.group,
         department: data.department,
-        is_active: data.status === 'active',
+        status: data.status, // Backend'da status field'i ishlatiladi
       };
 
       if (student) {
