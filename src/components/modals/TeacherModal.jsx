@@ -84,18 +84,43 @@ export function TeacherModal({ teacher, onClose }) {
       const personData = response.data?.data;
       
       if (personData) {
-        // Ma'lumotlarni formaga to'ldirish
-        // Ism va familiya (agar API'dan kelgan bo'lsa)
+        // Ma'lumotlarni formaga to'ldirish - barcha mavjud ma'lumotlarni avtomatik to'ldirish
+        let hasData = false;
+        
+        // Ism
         if (personData.first_name) {
           setValue('firstName', personData.first_name);
-        }
-        if (personData.last_name) {
-          setValue('lastName', personData.last_name);
+          hasData = true;
         }
         
-        // Agar ism va familiya bo'sh bo'lsa, demo xabar berish
-        if (!personData.first_name && !personData.last_name) {
-          // JSHSHIR raqamidan chiqarilgan ma'lumotlar
+        // Familiya
+        if (personData.last_name) {
+          setValue('lastName', personData.last_name);
+          hasData = true;
+        }
+        
+        // Telefon (agar API'dan kelgan bo'lsa)
+        if (personData.phone) {
+          setValue('phone', personData.phone);
+        }
+        
+        // Email - avtomatik yaratish yoki API'dan olish
+        if (personData.email) {
+          // API'dan kelgan email
+          setValue('email', personData.email);
+        } else if (personData.first_name && personData.last_name) {
+          // Email avtomatik yaratish (ism.familiya@example.com)
+          const emailBase = `${personData.first_name.toLowerCase()}.${personData.last_name.toLowerCase()}`;
+          const email = `${emailBase.replace(/\s+/g, '')}@example.com`;
+          setValue('email', email);
+        }
+        
+        // Agar API'dan ma'lumotlar kelgan bo'lsa, muvaffaqiyat xabari
+        if (hasData && personData.api_enabled) {
+          // API'dan ma'lumotlar kelgan - xabar ko'rsatmaymiz, chunki formaga to'ldirildi
+          console.log('JSHSHIR ma\'lumotlari API\'dan muvaffaqiyatli yuklandi va formaga to\'ldirildi');
+        } else if (!hasData) {
+          // Agar ism va familiya bo'sh bo'lsa, demo xabar berish
           const birthDate = personData.birth_date_formatted || personData.birth_date;
           const gender = personData.gender_uz || personData.gender;
           const region = personData.region || personData.address;
@@ -116,18 +141,17 @@ export function TeacherModal({ teacher, onClose }) {
           
           message += `Jins: ${gender}\n`;
           message += `Viloyat: ${region}\n\n`;
-          message += `Eslatma: Ism, familiya va to'liq manzil ma'lumotlari uchun haqiqiy API integratsiyasi kerak.\n`;
-          message += `Iltimos, ism va familiyani qo'lda kiriting.`;
+          
+          if (personData.api_enabled === false) {
+            message += `Eslatma: Haqiqiy API integratsiyasi o'rnatilmagan yoki ishlamayapti.\n`;
+            message += `Iltimos, ism va familiyani qo'lda kiriting.`;
+          } else {
+            message += `Eslatma: API'da ma'lumotlar topilmadi.\n`;
+            message += `Iltimos, ism va familiyani qo'lda kiriting.`;
+          }
           
           // Foydalanuvchiga xabar berish
           alert(message);
-        } else {
-          // Email avtomatik yaratish (ism.familiya@example.com)
-          if (personData.first_name && personData.last_name) {
-            const emailBase = `${personData.first_name.toLowerCase()}.${personData.last_name.toLowerCase()}`;
-            const email = `${emailBase.replace(/\s+/g, '')}@example.com`;
-            setValue('email', email);
-          }
         }
       }
     } catch (error) {

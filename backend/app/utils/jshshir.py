@@ -8,6 +8,10 @@ JSHSHIR formati: YYMMDDSSSSSS (14 xona)
 
 from typing import Optional, Dict
 from datetime import datetime, date
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def parse_jshshir(jshshir: str) -> Dict:
@@ -99,10 +103,79 @@ def parse_jshshir(jshshir: str) -> Dict:
     }
 
 
+def fetch_from_real_api(jshshir: str) -> Optional[Dict]:
+    """
+    Haqiqiy API'dan JSHSHIR ma'lumotlarini olish
+    
+    Args:
+        jshshir: 14 xonali JSHSHIR raqami
+        
+    Returns:
+        Dict with person information yoki None (agar xatolik bo'lsa)
+    """
+    try:
+        from app.config import settings
+        import requests
+        
+        if not settings.JSHSHIR_API_ENABLED:
+            return None
+        
+        api_url = settings.JSHSHIR_API_URL
+        api_key = settings.JSHSHIR_API_KEY
+        timeout = settings.JSHSHIR_API_TIMEOUT
+        
+        # API endpoint (bu endpoint'ni haqiqiy API dokumentatsiyasiga qarab o'zgartirish kerak)
+        endpoint = f"{api_url}/jshshir/{jshshir}"
+        
+        headers = {
+            "Content-Type": "application/json",
+        }
+        
+        # API kalit kerak bo'lsa
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+            # yoki boshqa format: headers["X-API-Key"] = api_key
+        
+        # API so'rovi
+        response = requests.get(
+            endpoint,
+            headers=headers,
+            timeout=timeout
+        )
+        
+        # Muvaffaqiyatli javob
+        if response.status_code == 200:
+            data = response.json()
+            
+            # API javobini formatlash (API strukturasiga qarab o'zgartirish kerak)
+            # Bu misol - haqiqiy API strukturasiga moslashtirish kerak
+            return {
+                'first_name': data.get('first_name') or data.get('firstName') or data.get('name') or '',
+                'last_name': data.get('last_name') or data.get('lastName') or data.get('surname') or '',
+                'middle_name': data.get('middle_name') or data.get('middleName') or data.get('patronymic') or '',
+                'address': data.get('address') or data.get('full_address') or '',
+                'region': data.get('region') or data.get('region_name') or '',
+                'district': data.get('district') or data.get('tuman') or '',
+                'phone': data.get('phone') or data.get('phone_number') or '',
+                'email': data.get('email') or '',
+            }
+        else:
+            logger.warning(f"JSHSHIR API xatolik: {response.status_code} - {response.text}")
+            return None
+            
+    except ImportError:
+        logger.warning("requests moduli topilmadi. pip install requests qiling.")
+        return None
+    except Exception as e:
+        logger.error(f"JSHSHIR API so'rovida xatolik: {str(e)}")
+        return None
+
+
 def get_person_info_by_jshshir(jshshir: str) -> Dict:
     """
     JSHSHIR raqami bo'yicha shaxs ma'lumotlarini olish
-    (Demo/Mock funksiya - haqiqiy API integratsiyasi uchun o'zgartirish kerak)
+    Avval haqiqiy API'dan urinib ko'radi, agar mavjud bo'lmasa yoki xatolik bo'lsa,
+    JSHSHIR raqamidan chiqarilgan ma'lumotlarni qaytaradi.
     
     Args:
         jshshir: 14 xonali JSHSHIR raqami
@@ -121,15 +194,15 @@ def get_person_info_by_jshshir(jshshir: str) -> Dict:
     # JSHSHIR raqamini parse qilish
     parsed = parse_jshshir(jshshir)
     
-    # Demo ma'lumotlar (Haqiqiy API integratsiyasi uchun bu yerda tashqi API'ga so'rov yuborish kerak)
-    # Masalan: O'zbekiston Respublikasi Fuqarolik holati davlat xizmatlari API'siga
-    
     # JSHSHIR raqamidan chiqarilgan ma'lumotlar
     birth_date = parsed['birth_date']
     gender = parsed['gender']
     region_code = parsed['region_code']
     date_valid = parsed.get('date_valid', True)
     date_error = parsed.get('date_error')
+    
+    # Haqiqiy API'dan ma'lumotlarni olishga harakat qilish
+    api_data = fetch_from_real_api(jshshir)
     
     # Region kodlari (demo)
     regions = {
@@ -169,16 +242,33 @@ def get_person_info_by_jshshir(jshshir: str) -> Dict:
     # Haqiqiy ism, familiya, manzil ma'lumotlari API'dan keladi
     # Bu yerda faqat JSHSHIR raqamidan chiqarilgan ma'lumotlar qaytariladi
     
+    # Haqiqiy API ma'lumotlarini birlashtirish
+    first_name = api_data.get('first_name', '') if api_data else ''
+    last_name = api_data.get('last_name', '') if api_data else ''
+    middle_name = api_data.get('middle_name', '') if api_data else ''
+    api_address = api_data.get('address', '') if api_data else ''
+    api_region = api_data.get('region', '') if api_data else ''
+    api_district = api_data.get('district', '') if api_data else ''
+    api_phone = api_data.get('phone', '') if api_data else ''
+    api_email = api_data.get('email', '') if api_data else ''
+    
+    # Agar API'dan region kelgan bo'lsa, uni ishlatamiz, aks holda JSHSHIR'dan chiqarilganini
+    final_region = api_region or region_name
+    final_address = api_address or final_region
+    
     # Sana haqida eslatma
     note_parts = []
-    if not date_valid and date_error:
-        note_parts.append(f"Diqqat: {date_error}. JSHSHIR raqamidan chiqarilgan sana noto'g'ri bo'lishi mumkin.")
-    note_parts.append("Bu demo ma'lumotlar. Haqiqiy ism, familiya va manzil ma'lumotlari uchun API integratsiyasi kerak.")
+    if api_data:
+        note_parts.append("Ma'lumotlar haqiqiy API'dan olindi.")
+    else:
+        if not date_valid and date_error:
+            note_parts.append(f"Diqqat: {date_error}. JSHSHIR raqamidan chiqarilgan sana noto'g'ri bo'lishi mumkin.")
+        note_parts.append("Haqiqiy API integratsiyasi o'rnatilmagan yoki ishlamayapti. JSHSHIR raqamidan chiqarilgan ma'lumotlar ko'rsatilmoqda.")
     
     return {
-        'first_name': '',  # Haqiqiy API'dan keladi (hozircha bo'sh)
-        'last_name': '',   # Haqiqiy API'dan keladi (hozircha bo'sh)
-        'middle_name': '',  # Haqiqiy API'dan keladi (hozircha bo'sh)
+        'first_name': first_name,
+        'last_name': last_name,
+        'middle_name': middle_name,
         'birth_date': birth_date.strftime('%Y-%m-%d'),  # Format: YYYY-MM-DD
         'birth_year': parsed['birth_year'],
         'birth_month': parsed['birth_month'],
@@ -187,12 +277,15 @@ def get_person_info_by_jshshir(jshshir: str) -> Dict:
         'gender': gender,
         'gender_uz': 'Erkak' if gender == 'male' else 'Ayol',
         'region_code': region_code,
-        'region': region_name,
-        'address': f'{region_name}',  # Haqiqiy API'dan keladi (hozircha faqat viloyat)
-        'district': '',  # Haqiqiy API'dan keladi (hozircha bo'sh)
+        'region': final_region,
+        'address': final_address,
+        'district': api_district,
+        'phone': api_phone,
+        'email': api_email,
         'jshshir': jshshir,
         'date_valid': date_valid,
         'date_error': date_error,
+        'api_enabled': api_data is not None,
         'note': ' '.join(note_parts),
     }
 
