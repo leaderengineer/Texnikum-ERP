@@ -54,7 +54,6 @@ export const teachersAPI = {
   create: (data) => apiClient.post('/teachers', data),
   update: (id, data) => apiClient.put(`/teachers/${id}`, data),
   delete: (id) => apiClient.delete(`/teachers/${id}`),
-  getByJshshir: (jshshir) => apiClient.get(`/teachers/jshshir/${jshshir}`),
 };
 
 // Students

@@ -25,12 +25,6 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     
-    # JSHSHIR API integratsiyasi
-    JSHSHIR_API_ENABLED: bool = False  # Haqiqiy API'ni yoqish uchun True qiling
-    JSHSHIR_API_URL: str = "https://api.fuqarolik.uz/v1"  # API base URL
-    JSHSHIR_API_KEY: str = ""  # API kalit (agar kerak bo'lsa)
-    JSHSHIR_API_TIMEOUT: int = 10  # So'rov timeout (sekundlarda)
-    
     class Config:
         env_file = ".env"
         case_sensitive = True

@@ -6,7 +6,6 @@ from app.models.user import User
 from app.models.teacher import Teacher
 from app.schemas.teacher import TeacherCreate, TeacherUpdate, TeacherResponse
 from app.auth import get_current_user, get_current_active_admin
-from app.utils.jshshir import get_person_info_by_jshshir, parse_jshshir
 
 router = APIRouter()
 
@@ -193,29 +192,4 @@ async def delete_teacher(
     db.delete(teacher)
     db.commit()
     return {"message": "Teacher deleted successfully"}
-
-
-@router.get("/jshshir/{jshshir}")
-async def get_person_by_jshshir(
-    jshshir: str,
-    current_user: User = Depends(get_current_user),
-):
-    """
-    JSHSHIR raqami bo'yicha shaxs ma'lumotlarini olish
-    
-    JSHSHIR raqami 14 xonali raqam bo'lishi kerak.
-    Ushbu endpoint JSHSHIR raqamidan tug'ilgan sana, jins va boshqa ma'lumotlarni qaytaradi.
-    
-    Haqiqiy API integratsiyasi uchun bu endpoint'ni o'zgartirish kerak.
-    """
-    try:
-        person_info = get_person_info_by_jshshir(jshshir)
-        return {
-            "success": True,
-            "data": person_info
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"JSHSHIR ma'lumotlarini olishda xatolik: {str(e)}")
 
