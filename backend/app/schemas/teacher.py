@@ -11,10 +11,12 @@ class TeacherBase(BaseModel):
 
 
 class TeacherCreate(TeacherBase):
-    user_id: int
     first_name: str
     last_name: str
-    password: str
+    password: Optional[str] = None  # Ixtiyoriy - agar yuborilmasa default yaratiladi
+    
+    class Config:
+        from_attributes = True
 
 
 class TeacherUpdate(BaseModel):

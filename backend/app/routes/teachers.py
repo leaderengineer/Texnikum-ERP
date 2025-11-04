@@ -38,7 +38,9 @@ async def get_teacher(
     current_user: User = Depends(get_current_user),
 ):
     """O'qituvchi ma'lumotlari"""
-    teacher = db.query(Teacher).filter(Teacher.id == teacher_id).first()
+    from sqlalchemy.orm import joinedload
+    
+    teacher = db.query(Teacher).options(joinedload(Teacher.user)).filter(Teacher.id == teacher_id).first()
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher not found")
     return teacher
@@ -58,14 +60,20 @@ async def create_teacher(
     
     # User yaratish
     from app.auth import get_password_hash
-    from app.models.user import User
-    hashed_password = get_password_hash(teacher_data.password)
+    from app.models.user import User, UserRole
+    import secrets
+    
+    # Agar password yuborilmasa, default password yaratish
+    password = teacher_data.password or secrets.token_urlsafe(12)
+    hashed_password = get_password_hash(password)
+    
     user = User(
         email=teacher_data.email,
         first_name=teacher_data.first_name,
         last_name=teacher_data.last_name,
         hashed_password=hashed_password,
-        role="teacher",
+        role=UserRole.TEACHER,
+        is_active=True,
     )
     db.add(user)
     db.flush()
@@ -82,9 +90,8 @@ async def create_teacher(
     db.commit()
     db.refresh(teacher)
     
-    # User ma'lumotlarini qo'shish
-    teacher.first_name = teacher_data.first_name
-    teacher.last_name = teacher_data.last_name
+    # User relationship'ni yuklash
+    db.refresh(teacher, ["user"])
     
     return teacher
 

@@ -18,6 +18,16 @@ class Teacher(Base):
 
     user = relationship("User", backref="teacher_profile")
 
+    @property
+    def first_name(self):
+        """User'dan first_name olish"""
+        return self.user.first_name if self.user else None
+
+    @property
+    def last_name(self):
+        """User'dan last_name olish"""
+        return self.user.last_name if self.user else None
+
     def __repr__(self):
         return f"<Teacher {self.email}>"
 

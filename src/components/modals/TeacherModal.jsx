@@ -49,21 +49,45 @@ export function TeacherModal({ teacher, onClose }) {
         first_name: data.firstName,
         last_name: data.lastName,
         email: data.email,
-        phone: data.phone,
+        phone: data.phone || '',
         department: data.department,
-        is_active: data.status === 'active',
+        status: data.status === 'active' ? 'active' : 'inactive',
       };
 
       if (teacher) {
         await teachersAPI.update(teacher.id, payload);
       } else {
+        // Create uchun password yuborish (yoki backend default yaratadi)
         await teachersAPI.create(payload);
       }
       onClose();
     } catch (error) {
       console.error('Saqlashda xatolik:', error);
-      const errorMessage = error.response?.data?.detail || error.message || 'Saqlashda xatolik yuz berdi';
-      alert(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
+      // Xatolikni to'g'ri ko'rsatish
+      let errorMessage = 'Saqlashda xatolik yuz berdi';
+      
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (errorData.detail) {
+          if (Array.isArray(errorData.detail)) {
+            // Validation xatoliklar
+            errorMessage = errorData.detail.map(err => {
+              if (typeof err === 'object' && err.loc && err.msg) {
+                return `${err.loc.join('.')}: ${err.msg}`;
+              }
+              return String(err);
+            }).join('\n');
+          } else {
+            errorMessage = String(errorData.detail);
+          }
+        } else if (errorData.message) {
+          errorMessage = String(errorData.message);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
     }
   };
 
