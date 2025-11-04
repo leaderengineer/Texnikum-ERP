@@ -7,6 +7,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
+import { departmentsAPI } from '../../services/api';
 
 const departmentSchema = z.object({
   name: z.string().min(2, 'Nomi kamida 2 ta belgi bo\'lishi kerak'),
@@ -46,18 +47,26 @@ export function DepartmentModal({ department, onClose }) {
 
   const onSubmit = async (data) => {
     try {
-      // Mock API call - backend bilan almashtiriladi
+      // Backend API formatiga o'tkazish
+      const payload = {
+        name: data.name,
+        code: data.code || '',
+        description: data.description || '',
+        is_active: data.status === 'active',
+        established_year: data.establishedYear || new Date().getFullYear(),
+        head: data.head || '',
+      };
+
       if (department) {
-        // await departmentsAPI.update(department.id, data);
-        console.log('Yo\'nalish yangilandi:', { id: department.id, ...data });
+        await departmentsAPI.update(department.id, payload);
       } else {
-        // await departmentsAPI.create(data);
-        console.log('Yangi yo\'nalish qo\'shildi:', data);
+        await departmentsAPI.create(payload);
       }
       onClose();
     } catch (error) {
       console.error('Saqlashda xatolik:', error);
-      alert('Saqlashda xatolik yuz berdi');
+      const errorMessage = error.response?.data?.detail || error.message || 'Saqlashda xatolik yuz berdi';
+      alert(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
     }
   };
 

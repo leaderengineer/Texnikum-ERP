@@ -7,6 +7,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
+import { schedulesAPI } from '../../services/api';
 
 const scheduleSchema = z.object({
   group: z.string().min(1, 'Guruh tanlanishi kerak'),

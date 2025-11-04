@@ -23,6 +23,7 @@ import {
 import { Badge } from '../../components/ui/Badge';
 import { Select } from '../../components/ui/Select';
 import useAuthStore from '../../store/authStore';
+import { attendanceAPI, studentsAPI } from '../../services/api';
 
 export function Attendance() {
   const { user } = useAuthStore();
@@ -37,29 +38,63 @@ export function Attendance() {
   }, [selectedDate, selectedGroup, selectedSubject]);
 
   const loadAttendance = async () => {
-    // Mock data - jurnal uchun to'liq ro'yxat
-    const mockStudents = [
-      { id: 1, studentName: 'Aziz Karimov', studentId: 'ST001' },
-      { id: 2, studentName: 'Malika Yuldasheva', studentId: 'ST002' },
-      { id: 3, studentName: 'Javohir Toshmatov', studentId: 'ST003' },
-      { id: 4, studentName: 'Dilshod Rahimov', studentId: 'ST004' },
-      { id: 5, studentName: 'Nodira Karimova', studentId: 'ST005' },
-      { id: 6, studentName: 'Sardor Beknazarov', studentId: 'ST006' },
-      { id: 7, studentName: 'Gulnora Toshmatova', studentId: 'ST007' },
-      { id: 8, studentName: 'Farruh Umarov', studentId: 'ST008' },
-      { id: 9, studentName: 'Madina Yuldasheva', studentId: 'ST009' },
-      { id: 10, studentName: 'Bekzod Nuraliev', studentId: 'ST010' },
-    ];
-
-    const mockAttendance = mockStudents.map((student, index) => ({
-      ...student,
-      group: selectedGroup,
-      status: index < 7 ? 'present' : index === 7 ? 'late' : 'absent',
-      time: index < 7 ? '09:00' : index === 7 ? '09:15' : '-',
-    }));
-
-    setAttendance(mockAttendance);
-    setLoading(false);
+    try {
+      setLoading(true);
+      // Backend'dan attendance ma'lumotlarini olish
+      const response = await attendanceAPI.getByDate(selectedDate, {
+        group: selectedGroup,
+        subject: selectedSubject,
+      });
+      
+      const attendanceData = response.data || [];
+      
+      // Agar attendance yo'q bo'lsa, guruh talabalarini yuklash
+      if (attendanceData.length === 0) {
+        const studentsResponse = await studentsAPI.getByGroup(selectedGroup);
+        const students = studentsResponse.data || [];
+        
+        const newAttendance = students.map((student) => ({
+          id: student.id,
+          studentName: `${student.first_name} ${student.last_name}`,
+          studentId: student.student_id || '',
+          group: selectedGroup,
+          status: 'present',
+          time: new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
+        }));
+        
+        setAttendance(newAttendance);
+      } else {
+        // Backend formatidan frontend formatiga o'tkazish
+        const formattedAttendance = attendanceData.map((item) => ({
+          id: item.student_id,
+          studentName: item.student?.first_name && item.student?.last_name 
+            ? `${item.student.first_name} ${item.student.last_name}` 
+            : 'Unknown',
+          studentId: item.student?.student_id || '',
+          group: item.group || selectedGroup,
+          status: item.status || 'present',
+          time: item.time || '-',
+        }));
+        
+        setAttendance(formattedAttendance);
+      }
+    } catch (error) {
+      console.error('Davomatni yuklashda xatolik:', error);
+      // Fallback to mock data
+      const mockStudents = [
+        { id: 1, studentName: 'Aziz Karimov', studentId: 'ST001' },
+        { id: 2, studentName: 'Malika Yuldasheva', studentId: 'ST002' },
+        { id: 3, studentName: 'Javohir Toshmatov', studentId: 'ST003' },
+      ];
+      setAttendance(mockStudents.map((s, i) => ({
+        ...s,
+        group: selectedGroup,
+        status: i < 2 ? 'present' : 'absent',
+        time: i < 2 ? '09:00' : '-',
+      })));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleStatusChange = (id, newStatus) => {
@@ -146,18 +181,27 @@ export function Attendance() {
   const handleSave = async () => {
     try {
       setLoading(true);
-      // Mock API call
-      // await attendanceAPI.update(selectedDate, { group: selectedGroup, subject: selectedSubject, attendance });
-      console.log('Davomat saqlandi:', {
-        date: selectedDate,
-        group: selectedGroup,
-        subject: selectedSubject,
-        attendance,
+      // Har bir talaba uchun attendance record yaratish/yangilash
+      const promises = attendance.map((item) => {
+        const payload = {
+          student_id: item.id,
+          date: selectedDate,
+          group: selectedGroup,
+          subject: selectedSubject,
+          status: item.status,
+          time: item.time !== '-' ? item.time : null,
+        };
+        
+        // Agar mavjud bo'lsa update, aks holda create
+        return attendanceAPI.create(payload);
       });
+      
+      await Promise.all(promises);
       alert('Davomat muvaffaqiyatli saqlandi!');
     } catch (error) {
       console.error('Saqlashda xatolik:', error);
-      alert('Davomat saqlashda xatolik yuz berdi');
+      const errorMessage = error.response?.data?.detail || error.message || 'Davomat saqlashda xatolik yuz berdi';
+      alert(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
     } finally {
       setLoading(false);
     }

@@ -5,6 +5,7 @@ from app.models.department import Department
 from app.models.schedule import Schedule
 from app.models.attendance import Attendance
 from app.models.book import Book, BookBorrow
+from app.models.audit_log import AuditLog
 
 __all__ = [
     "User",
@@ -15,5 +16,6 @@ __all__ = [
     "Attendance",
     "Book",
     "BookBorrow",
+    "AuditLog",
 ]
 

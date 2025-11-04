@@ -12,6 +12,7 @@ import {
 import { Badge } from '../../components/ui/Badge';
 import useAuthStore from '../../store/authStore';
 import { ScheduleModal } from '../../components/modals/ScheduleModal';
+import { schedulesAPI } from '../../services/api';
 
 const weekDays = [
   'Dushanba',
@@ -54,8 +55,27 @@ export function Schedules() {
   }, []);
 
   const loadSchedules = async () => {
-    // Mock data - barcha kunlar uchun
-    setSchedules([
+    try {
+      setLoading(true);
+      const response = await schedulesAPI.getAll();
+      const schedulesData = response.data || [];
+      
+      // Backend formatidan frontend formatiga o'tkazish
+      const formattedSchedules = schedulesData.map((schedule) => ({
+        id: schedule.id,
+        group: schedule.group || '',
+        subject: schedule.subject || '',
+        teacher: schedule.teacher || '',
+        day: schedule.day || '',
+        time: schedule.time || '',
+        room: schedule.room || '',
+      }));
+      
+      setSchedules(formattedSchedules);
+    } catch (error) {
+      console.error('Dars jadvallarini yuklashda xatolik:', error);
+      // Fallback to mock data
+      setSchedules([
       {
         id: 1,
         group: 'AT-21-01',
@@ -202,26 +222,43 @@ export function Schedules() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const schedule = schedules.find((s) => s.id === id);
     if (window.confirm(`"${schedule.subject}" darsini o'chirishni tasdiqlaysizmi?`)) {
-      setSchedules(schedules.filter((s) => s.id !== id));
+      try {
+        await schedulesAPI.delete(id);
+        await loadSchedules();
+      } catch (error) {
+        console.error('O\'chirishda xatolik:', error);
+        alert('O\'chirishda xatolik yuz berdi');
+      }
     }
   };
 
   const handleSave = async (data) => {
-    if (selectedSchedule) {
-      // Update existing schedule
-      setSchedules(schedules.map((s) => 
-        s.id === selectedSchedule.id ? { ...s, ...data } : s
-      ));
-    } else {
-      // Create new schedule
-      const newSchedule = {
-        id: Math.max(...schedules.map(s => s.id), 0) + 1,
-        ...data,
+    try {
+      // Backend API formatiga o'tkazish
+      const payload = {
+        group: data.group,
+        subject: data.subject,
+        teacher: data.teacher,
+        day: data.day,
+        time: data.time,
+        room: data.room,
       };
-      setSchedules([...schedules, newSchedule]);
+
+      if (selectedSchedule) {
+        await schedulesAPI.update(selectedSchedule.id, payload);
+      } else {
+        await schedulesAPI.create(payload);
+      }
+      await loadSchedules();
+      setIsModalOpen(false);
+      setSelectedSchedule(null);
+    } catch (error) {
+      console.error('Saqlashda xatolik:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Saqlashda xatolik yuz berdi';
+      alert(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
     }
   };
 

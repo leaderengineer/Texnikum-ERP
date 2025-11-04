@@ -29,67 +29,25 @@ export function Teachers() {
 
   const loadTeachers = async () => {
     try {
-      // Mock data - backend bilan almashtiriladi
-      // const response = await teachersAPI.getAll();
+      setLoading(true);
+      const response = await teachersAPI.getAll();
+      const teachersData = response.data || [];
       
-      setTeachers([
-        {
-          id: 1,
-          firstName: 'Alisher',
-          lastName: 'Nazirov',
-          email: 'alisher@texnikum.uz',
-          phone: '+998901234567',
-          department: 'Axborot texnologiyalari',
-          status: 'active',
-        },
-        {
-          id: 2,
-          firstName: 'Dilshoda',
-          lastName: 'Karimova',
-          email: 'dilshoda@texnikum.uz',
-          phone: '+998901234568',
-          department: 'Muhandislik',
-          status: 'active',
-        },
-        {
-          id: 3,
-          firstName: 'Jahongir',
-          lastName: 'Umarov',
-          email: 'jahongir@texnikum.uz',
-          phone: '+998901234569',
-          department: 'Iqtisodiyot',
-          status: 'active',
-        },
-        {
-          id: 4,
-          firstName: 'Nigora',
-          lastName: 'Toshmatova',
-          email: 'nigora@texnikum.uz',
-          phone: '+998901234570',
-          department: 'Ta\'lim',
-          status: 'active',
-        },
-        {
-          id: 5,
-          firstName: 'Rustam',
-          lastName: 'Yuldashev',
-          email: 'rustam@texnikum.uz',
-          phone: '+998901234571',
-          department: 'Axborot texnologiyalari',
-          status: 'active',
-        },
-        {
-          id: 6,
-          firstName: 'Sabina',
-          lastName: 'Rahimova',
-          email: 'sabina@texnikum.uz',
-          phone: '+998901234572',
-          department: 'Muhandislik',
-          status: 'active',
-        },
-      ]);
+      // Backend formatidan frontend formatiga o'tkazish
+      const formattedTeachers = teachersData.map((teacher) => ({
+        id: teacher.id,
+        firstName: teacher.first_name,
+        lastName: teacher.last_name,
+        email: teacher.email,
+        phone: teacher.phone || '',
+        department: teacher.department || '',
+        status: teacher.is_active ? 'active' : 'inactive',
+      }));
+      
+      setTeachers(formattedTeachers);
     } catch (error) {
       console.error('O\'qituvchilarni yuklashda xatolik:', error);
+      setTeachers([]);
     } finally {
       setLoading(false);
     }
@@ -108,10 +66,11 @@ export function Teachers() {
   const handleDelete = async (id) => {
     if (window.confirm('Bu o\'qituvchini o\'chirishni tasdiqlaysizmi?')) {
       try {
-        // await teachersAPI.delete(id);
+        await teachersAPI.delete(id);
         setTeachers(teachers.filter((t) => t.id !== id));
       } catch (error) {
         console.error('O\'chirishda xatolik:', error);
+        alert('O\'chirishda xatolik yuz berdi');
       }
     }
   };

@@ -5,6 +5,7 @@ from app.schemas.department import DepartmentCreate, DepartmentUpdate, Departmen
 from app.schemas.schedule import ScheduleCreate, ScheduleUpdate, ScheduleResponse
 from app.schemas.attendance import AttendanceCreate, AttendanceUpdate, AttendanceResponse
 from app.schemas.book import BookCreate, BookUpdate, BookResponse, BookBorrowCreate
+from app.schemas.audit_log import AuditLogResponse, AuditLogCreate
 
 __all__ = [
     "UserCreate",
@@ -30,5 +31,7 @@ __all__ = [
     "BookUpdate",
     "BookResponse",
     "BookBorrowCreate",
+    "AuditLogResponse",
+    "AuditLogCreate",
 ]
 

@@ -49,10 +49,44 @@ export function Dashboard() {
 
   const loadDashboardData = async () => {
     try {
-      // Mock data - backend bilan almashtiriladi
-      // const response = await dashboardAPI.getStats();
-      
-      // Mock data
+      setLoading(true);
+      const [statsResponse, attendanceResponse, studentsResponse, booksResponse] = await Promise.all([
+        dashboardAPI.getStats(),
+        dashboardAPI.getAttendanceStats({ days: 7 }),
+        dashboardAPI.getStudentStats(),
+        dashboardAPI.getBookStats(),
+      ]);
+
+      const statsData = statsResponse.data;
+      setStats({
+        totalStudents: statsData.total_students || 0,
+        totalTeachers: statsData.total_teachers || 0,
+        totalBooks: statsData.total_books || 0,
+        todayAttendance: statsData.today_attendance || 0,
+        attendanceRate: statsData.attendance_rate || 0,
+      });
+
+      // Chart data'ni yangilash
+      if (attendanceResponse.data) {
+        // Weekly attendance data
+        const weeklyData = attendanceResponse.data.slice().reverse().map((item, index) => {
+          const days = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
+          const date = new Date(item.date);
+          return {
+            name: days[date.getDay()] || `Kun ${index + 1}`,
+            present: item.present || 0,
+            absent: item.absent || 0,
+          };
+        });
+        setAttendanceData(weeklyData);
+      }
+
+      if (studentsResponse.data) {
+        setStudentsByDepartment(studentsResponse.data);
+      }
+    } catch (error) {
+      console.error('Dashboard ma\'lumotlarini yuklashda xatolik:', error);
+      // Fallback to mock data
       setStats({
         totalStudents: 1248,
         totalTeachers: 48,
@@ -60,30 +94,28 @@ export function Dashboard() {
         todayAttendance: 1187,
         attendanceRate: 95.1,
       });
-    } catch (error) {
-      console.error('Dashboard ma\'lumotlarini yuklashda xatolik:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Mock chart data
-  const attendanceData = [
+  // Chart data state
+  const [attendanceData, setAttendanceData] = useState([
     { name: 'Dushanba', present: 1180, absent: 68 },
     { name: 'Seshanba', present: 1195, absent: 53 },
     { name: 'Chorshanba', present: 1187, absent: 61 },
     { name: 'Payshanba', present: 1200, absent: 48 },
     { name: 'Juma', present: 1187, absent: 61 },
     { name: 'Shanba', present: 1150, absent: 98 },
-  ];
+  ]);
 
-  const studentsByDepartment = [
+  const [studentsByDepartment, setStudentsByDepartment] = useState([
     { name: 'Axborot texnologiyalari', value: 320 },
     { name: 'Muhandislik', value: 280 },
     { name: 'Iqtisodiyot', value: 245 },
     { name: 'Ta\'lim', value: 203 },
     { name: 'Boshqalar', value: 200 },
-  ];
+  ]);
 
   const monthlyAttendance = [
     { month: 'Sentabr', rate: 93.8 },

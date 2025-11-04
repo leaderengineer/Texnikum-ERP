@@ -44,18 +44,26 @@ export function TeacherModal({ teacher, onClose }) {
 
   const onSubmit = async (data) => {
     try {
-      // Mock API call - backend bilan almashtiriladi
+      // Backend API formatiga o'tkazish
+      const payload = {
+        first_name: data.firstName,
+        last_name: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        department: data.department,
+        is_active: data.status === 'active',
+      };
+
       if (teacher) {
-        // await teachersAPI.update(teacher.id, data);
-        console.log('O\'qituvchi yangilandi:', { id: teacher.id, ...data });
+        await teachersAPI.update(teacher.id, payload);
       } else {
-        // await teachersAPI.create(data);
-        console.log('Yangi o\'qituvchi qo\'shildi:', data);
+        await teachersAPI.create(payload);
       }
       onClose();
     } catch (error) {
       console.error('Saqlashda xatolik:', error);
-      alert('Saqlashda xatolik yuz berdi');
+      const errorMessage = error.response?.data?.detail || error.message || 'Saqlashda xatolik yuz berdi';
+      alert(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
     }
   };
 

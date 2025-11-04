@@ -32,6 +32,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Select } from '../../components/ui/Select';
 import { BookModal } from '../../components/modals/BookModal';
 import { BookAddModal } from '../../components/modals/BookAddModal';
+import { libraryAPI } from '../../services/api';
 
 const categories = [
   'Barcha',
@@ -64,8 +65,36 @@ export function Library() {
   }, []);
 
   const loadBooks = async () => {
-    // Mock data - yanada ko'p ma'lumotlar bilan
-    setBooks([
+    try {
+      setLoading(true);
+      const response = await libraryAPI.getAll();
+      const booksData = response.data || [];
+      
+      // Backend formatidan frontend formatiga o'tkazish
+      const formattedBooks = booksData.map((book) => ({
+        id: book.id,
+        title: book.title || '',
+        author: book.author || '',
+        isbn: book.isbn || '',
+        category: book.category || 'Boshqalar',
+        year: book.year || new Date().getFullYear(),
+        pages: book.pages || 0,
+        language: book.language || 'O\'zbek',
+        description: book.description || '',
+        totalCopies: book.total_copies || 0,
+        availableCopies: book.available_copies || 0,
+        borrowedCopies: book.borrowed_copies || 0,
+        status: book.available_copies > 0 ? 'available' : 'unavailable',
+        rating: book.rating || 0,
+        hasDigital: book.has_digital || false,
+        coverColor: `bg-gradient-to-br from-${['blue', 'green', 'purple', 'orange', 'pink'][book.id % 5]}-400 via-${['blue', 'green', 'purple', 'orange', 'pink'][book.id % 5]}-500 to-${['blue', 'green', 'purple', 'orange', 'pink'][book.id % 5]}-700`,
+      }));
+      
+      setBooks(formattedBooks);
+    } catch (error) {
+      console.error('Kitoblarni yuklashda xatolik:', error);
+      // Fallback to mock data
+      setBooks([
       {
         id: 1,
         title: 'JavaScript: The Definitive Guide',
@@ -210,10 +239,21 @@ export function Library() {
     }
   };
 
-  const handleBorrow = (book) => {
+  const handleBorrow = async (book) => {
     if (book.availableCopies > 0) {
-      setSelectedBook(book);
-      setIsModalOpen(true);
+      try {
+        await libraryAPI.borrow({
+          book_id: book.id,
+          student_id: 1, // TODO: Get from auth store
+          borrow_date: new Date().toISOString().split('T')[0],
+        });
+        await loadBooks();
+        alert(`"${book.title}" kitobi muvaffaqiyatli band qilindi!`);
+      } catch (error) {
+        console.error('Band qilishda xatolik:', error);
+        const errorMessage = error.response?.data?.detail || error.message || 'Band qilishda xatolik yuz berdi';
+        alert(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
+      }
     } else {
       alert('Bu kitob hozir mavjud emas. Barcha nusxalar olingan.');
     }
@@ -245,10 +285,16 @@ export function Library() {
     }
   };
 
-  const handleDeleteBook = (id) => {
+  const handleDeleteBook = async (id) => {
     const book = books.find((b) => b.id === id);
     if (window.confirm(`"${book.title}" kitobini o'chirishni tasdiqlaysizmi?`)) {
-      setBooks(books.filter((b) => b.id !== id));
+      try {
+        await libraryAPI.delete(id);
+        await loadBooks();
+      } catch (error) {
+        console.error('O\'chirishda xatolik:', error);
+        alert('O\'chirishda xatolik yuz berdi');
+      }
     }
   };
 

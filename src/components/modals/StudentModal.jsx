@@ -48,18 +48,28 @@ export function StudentModal({ student, onClose }) {
 
   const onSubmit = async (data) => {
     try {
-      // Mock API call - backend bilan almashtiriladi
+      // Backend API formatiga o'tkazish
+      const payload = {
+        first_name: data.firstName,
+        last_name: data.lastName,
+        student_id: data.studentId,
+        email: data.email,
+        phone: data.phone,
+        group: data.group,
+        department: data.department,
+        is_active: data.status === 'active',
+      };
+
       if (student) {
-        // await studentsAPI.update(student.id, data);
-        console.log('Talaba yangilandi:', { id: student.id, ...data });
+        await studentsAPI.update(student.id, payload);
       } else {
-        // await studentsAPI.create(data);
-        console.log('Yangi talaba qo\'shildi:', data);
+        await studentsAPI.create(payload);
       }
       onClose();
     } catch (error) {
       console.error('Saqlashda xatolik:', error);
-      alert('Saqlashda xatolik yuz berdi');
+      const errorMessage = error.response?.data?.detail || error.message || 'Saqlashda xatolik yuz berdi';
+      alert(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
     }
   };
 

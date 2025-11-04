@@ -29,77 +29,27 @@ export function Students() {
 
   const loadStudents = async () => {
     try {
-      // Mock data
-      setStudents([
-        {
-          id: 1,
-          firstName: 'Aziz',
-          lastName: 'Karimov',
-          studentId: 'ST001',
-          email: 'aziz@student.texnikum.uz',
-          phone: '+998901234570',
-          group: 'AT-21-01',
-          department: 'Axborot texnologiyalari',
-          status: 'active',
-        },
-        {
-          id: 2,
-          firstName: 'Malika',
-          lastName: 'Yuldasheva',
-          studentId: 'ST002',
-          email: 'malika@student.texnikum.uz',
-          phone: '+998901234571',
-          group: 'M-21-02',
-          department: 'Muhandislik',
-          status: 'active',
-        },
-        {
-          id: 3,
-          firstName: 'Javohir',
-          lastName: 'Toshmatov',
-          studentId: 'ST003',
-          email: 'javohir@student.texnikum.uz',
-          phone: '+998901234572',
-          group: 'AT-21-01',
-          department: 'Axborot texnologiyalari',
-          status: 'active',
-        },
-        {
-          id: 4,
-          firstName: 'Dilshoda',
-          lastName: 'Rahimova',
-          studentId: 'ST004',
-          email: 'dilshoda@student.texnikum.uz',
-          phone: '+998901234573',
-          group: 'I-21-01',
-          department: 'Iqtisodiyot',
-          status: 'active',
-        },
-        {
-          id: 5,
-          firstName: 'Sardor',
-          lastName: 'Beknazarov',
-          studentId: 'ST005',
-          email: 'sardor@student.texnikum.uz',
-          phone: '+998901234574',
-          group: 'M-21-02',
-          department: 'Muhandislik',
-          status: 'active',
-        },
-        {
-          id: 6,
-          firstName: 'Gulnora',
-          lastName: 'Toshmatova',
-          studentId: 'ST006',
-          email: 'gulnora@student.texnikum.uz',
-          phone: '+998901234575',
-          group: 'T-21-01',
-          department: 'Ta\'lim',
-          status: 'active',
-        },
-      ]);
+      setLoading(true);
+      const response = await studentsAPI.getAll();
+      const studentsData = response.data || [];
+      
+      // Backend formatidan frontend formatiga o'tkazish
+      const formattedStudents = studentsData.map((student) => ({
+        id: student.id,
+        firstName: student.first_name,
+        lastName: student.last_name,
+        studentId: student.student_id || '',
+        email: student.email || '',
+        phone: student.phone || '',
+        group: student.group || '',
+        department: student.department || '',
+        status: student.is_active ? 'active' : 'inactive',
+      }));
+      
+      setStudents(formattedStudents);
     } catch (error) {
       console.error('Talabalarni yuklashda xatolik:', error);
+      setStudents([]);
     } finally {
       setLoading(false);
     }
@@ -118,9 +68,11 @@ export function Students() {
   const handleDelete = async (id) => {
     if (window.confirm('Bu talabani o\'chirishni tasdiqlaysizmi?')) {
       try {
+        await studentsAPI.delete(id);
         setStudents(students.filter((s) => s.id !== id));
       } catch (error) {
         console.error('O\'chirishda xatolik:', error);
+        alert('O\'chirishda xatolik yuz berdi');
       }
     }
   };

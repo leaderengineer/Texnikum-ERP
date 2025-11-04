@@ -17,6 +17,7 @@ import {
   TableRow,
 } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
+import { auditAPI } from '../../services/api';
 
 export function AuditLogs() {
   const [logs, setLogs] = useState([]);
@@ -34,59 +35,25 @@ export function AuditLogs() {
 
   const loadLogs = async () => {
     try {
-      // Mock data - backend bilan almashtiriladi
-      // const response = await auditAPI.getAll();
-      const now = new Date();
-      const mockLogs = [
-        {
-          id: 1,
-          user: 'Admin User',
-          action: 'create',
-          entity: 'Student',
-          entityId: 123,
-          details: 'Yangi talaba qo\'shildi: Aziz Karimov',
-          timestamp: new Date(now.getTime() - 1000 * 60 * 5), // 5 daqiqa oldin
-        },
-        {
-          id: 2,
-          user: 'Admin User',
-          action: 'update',
-          entity: 'Teacher',
-          entityId: 45,
-          details: 'O\'qituvchi ma\'lumotlari yangilandi',
-          timestamp: new Date(now.getTime() - 1000 * 60 * 15), // 15 daqiqa oldin
-        },
-        {
-          id: 3,
-          user: 'Admin User',
-          action: 'delete',
-          entity: 'Book',
-          entityId: 78,
-          details: 'Kitob o\'chirildi: JavaScript Guide',
-          timestamp: new Date(now.getTime() - 1000 * 60 * 60), // 1 soat oldin
-        },
-        {
-          id: 4,
-          user: 'Teacher User',
-          action: 'update',
-          entity: 'Attendance',
-          entityId: 234,
-          details: 'Davomat yangilandi: 5 ta talaba belgilandi',
-          timestamp: new Date(now.getTime() - 1000 * 60 * 30), // 30 daqiqa oldin
-        },
-        {
-          id: 5,
-          user: 'Admin User',
-          action: 'create',
-          entity: 'Schedule',
-          entityId: 89,
-          details: 'Yangi dars jadvali qo\'shildi: AT-21-01',
-          timestamp: new Date(now.getTime() - 1000 * 60 * 2), // 2 daqiqa oldin
-        },
-      ];
-      setLogs(mockLogs);
+      setLoading(true);
+      const response = await auditAPI.getAll({ limit: 100 });
+      const logsData = response.data || [];
+      
+      // Backend formatidan frontend formatiga o'tkazish
+      const formattedLogs = logsData.map((log) => ({
+        id: log.id,
+        user: log.user_email || log.user_id?.toString() || 'Unknown',
+        action: log.action,
+        entity: log.resource_type,
+        entityId: log.resource_id,
+        details: log.description || `${log.action} ${log.resource_type}`,
+        timestamp: new Date(log.created_at),
+      }));
+      
+      setLogs(formattedLogs);
     } catch (error) {
       console.error('Loglarni yuklashda xatolik:', error);
+      setLogs([]);
     } finally {
       setLoading(false);
     }

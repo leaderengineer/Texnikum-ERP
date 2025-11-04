@@ -23,6 +23,7 @@ import {
 import { Badge } from '../../components/ui/Badge';
 import { DepartmentModal } from '../../components/modals/DepartmentModal';
 import { DepartmentDetailsModal } from '../../components/modals/DepartmentDetailsModal';
+import { departmentsAPI } from '../../services/api';
 
 const departmentColors = [
   { bg: 'bg-gradient-to-br from-blue-500 to-blue-700', light: 'bg-blue-50 dark:bg-blue-950/20', border: 'border-blue-200 dark:border-blue-800' },
@@ -47,75 +48,33 @@ export function Departments() {
   }, []);
 
   const loadDepartments = async () => {
-    // Mock data - yanada ko'p ma'lumotlar bilan
-    setDepartments([
-      {
-        id: 1,
-        name: 'Axborot texnologiyalari',
-        code: 'AT',
-        description: 'Axborot texnologiyalari va kompyuter fanlari yo\'nalishi. Dasturlash, web dizayn, ma\'lumotlar bazasi va zamonaviy IT texnologiyalarini o\'rgatadi.',
-        studentsCount: 320,
-        teachersCount: 15,
-        groupsCount: 12,
-        coursesCount: 24,
-        status: 'active',
-        establishedYear: 2015,
-        head: 'Prof. Alisher Nazirov',
-      },
-      {
-        id: 2,
-        name: 'Muhandislik',
-        code: 'M',
-        description: 'Muhandislik va texnika yo\'nalishi. Qurilish, mashinasozlik, elektrotexnika va boshqa muhandislik sohalari.',
-        studentsCount: 280,
-        teachersCount: 12,
-        groupsCount: 10,
-        coursesCount: 20,
-        status: 'active',
-        establishedYear: 2013,
-        head: 'Prof. Dilshoda Karimova',
-      },
-      {
-        id: 3,
-        name: 'Iqtisodiyot',
-        code: 'I',
-        description: 'Iqtisodiyot va menejment yo\'nalishi. Buxgalteriya, moliya, marketing va biznes boshqaruvi.',
-        studentsCount: 245,
-        teachersCount: 10,
-        groupsCount: 8,
-        coursesCount: 18,
-        status: 'active',
-        establishedYear: 2014,
-        head: 'Prof. Jahongir Umarov',
-      },
-      {
-        id: 4,
-        name: 'Ta\'lim',
-        code: 'T',
-        description: 'Pedagogika va ta\'lim yo\'nalishi. Boshlang\'ich ta\'lim, maktabgacha ta\'lim va maxsus ta\'lim.',
-        studentsCount: 203,
-        teachersCount: 8,
-        groupsCount: 7,
-        coursesCount: 16,
-        status: 'active',
-        establishedYear: 2012,
-        head: 'Prof. Malika Yuldasheva',
-      },
-      {
-        id: 5,
-        name: 'San\'at va dizayn',
-        code: 'SD',
-        description: 'San\'at va dizayn yo\'nalishi. Grafik dizayn, interyer dizayn va amaliy san\'at.',
-        studentsCount: 156,
-        teachersCount: 6,
-        groupsCount: 5,
-        coursesCount: 12,
-        status: 'active',
-        establishedYear: 2018,
-        head: 'Prof. Aziz Karimov',
-      },
-    ]);
-    setLoading(false);
+    try {
+      setLoading(true);
+      const response = await departmentsAPI.getAll();
+      const deptsData = response.data || [];
+      
+      // Backend formatidan frontend formatiga o'tkazish
+      const formattedDepartments = deptsData.map((dept) => ({
+        id: dept.id,
+        name: dept.name,
+        code: dept.code || '',
+        description: dept.description || '',
+        studentsCount: dept.students_count || 0,
+        teachersCount: dept.teachers_count || 0,
+        groupsCount: dept.groups_count || 0,
+        coursesCount: dept.courses_count || 0,
+        status: dept.is_active ? 'active' : 'inactive',
+        establishedYear: dept.established_year || new Date().getFullYear(),
+        head: dept.head || '',
+      }));
+      
+      setDepartments(formattedDepartments);
+    } catch (error) {
+      console.error('Yo\'nalishlarni yuklashda xatolik:', error);
+      setDepartments([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filteredDepartments = departments.filter((dept) =>
@@ -144,10 +103,16 @@ export function Departments() {
     setIsDetailsModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const dept = departments.find((d) => d.id === id);
     if (window.confirm(`"${dept.name}" yo'nalishini o'chirishni tasdiqlaysizmi?`)) {
-      setDepartments(departments.filter((d) => d.id !== id));
+      try {
+        await departmentsAPI.delete(id);
+        setDepartments(departments.filter((d) => d.id !== id));
+      } catch (error) {
+        console.error('O\'chirishda xatolik:', error);
+        alert('O\'chirishda xatolik yuz berdi');
+      }
     }
   };
 

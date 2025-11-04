@@ -9,6 +9,7 @@ import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
 import useAuthStore from '../store/authStore';
 import { useTheme } from '../contexts/ThemeContext';
+import { authAPI } from '../services/api';
 
 const loginSchema = z.object({
   email: z.string().email('Noto\'g\'ri email manzil'),
@@ -38,22 +39,31 @@ export function Login() {
     setLoading(true);
 
     try {
-      // Mock login - backend bilan almashtiriladi
-      const mockUser = {
-        id: 1,
+      // Backend API orqali login
+      const response = await authAPI.login({
         email: data.email,
-        firstName: data.email.includes('admin') ? 'Admin' : 'O\'qituvchi',
-        lastName: 'User',
-        role: data.email.includes('admin') ? 'admin' : 'teacher',
-      };
-      const mockToken = 'mock-jwt-token-' + Date.now();
+        password: data.password,
+      });
 
-      login(mockUser, mockToken);
+      const { access_token, user } = response.data;
+      
+      // User formatini frontend formatiga o'tkazish
+      const formattedUser = {
+        id: user.id,
+        email: user.email,
+        firstName: user.first_name,
+        lastName: user.last_name,
+        role: user.role,
+        username: user.username,
+      };
+
+      login(formattedUser, access_token);
 
       const from = location.state?.from?.pathname || '/dashboard';
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err.response?.data?.message || 'Kirishda xatolik yuz berdi');
+      const errorMessage = err.response?.data?.detail || err.message || 'Kirishda xatolik yuz berdi';
+      setError(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
     } finally {
       setLoading(false);
     }
