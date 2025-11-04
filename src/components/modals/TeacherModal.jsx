@@ -98,8 +98,6 @@ export function TeacherModal({ teacher, onClose }) {
         department: data.department,
         status: normalizedStatus,
       };
-      
-      console.log('Saving teacher with payload:', payload); // Debug uchun
 
       if (teacher) {
         await teachersAPI.update(teacher.id, payload);
