@@ -94,7 +94,10 @@ export function TeacherModal({ teacher, onClose }) {
       // Xatolikni to'g'ri ko'rsatish
       let errorMessage = 'Saqlashda xatolik yuz berdi';
       
-      if (error.response?.data) {
+      // Network error tekshirish
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error') {
+        errorMessage = 'Server bilan ulanib bo\'lmadi. Iltimos, backend server ishga tushganligini tekshiring.';
+      } else if (error.response?.data) {
         const errorData = error.response.data;
         if (errorData.detail) {
           if (Array.isArray(errorData.detail)) {
