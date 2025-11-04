@@ -185,6 +185,8 @@ export function Attendance() {
       const promises = attendance.map((item) => {
         const payload = {
           student_id: item.id,
+          student_name: item.studentName || '',
+          student_student_id: item.studentId || '',
           date: selectedDate,
           group: selectedGroup,
           subject: selectedSubject,
@@ -198,10 +200,35 @@ export function Attendance() {
       
       await Promise.all(promises);
       alert('Davomat muvaffaqiyatli saqlandi!');
+      // Saqlashdan keyin yangilash
+      await loadAttendance();
     } catch (error) {
       console.error('Saqlashda xatolik:', error);
-      const errorMessage = error.response?.data?.detail || error.message || 'Davomat saqlashda xatolik yuz berdi';
-      alert(Array.isArray(errorMessage) ? errorMessage[0] : errorMessage);
+      // Xatolikni to'g'ri ko'rsatish
+      let errorMessage = 'Davomat saqlashda xatolik yuz berdi';
+      
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (errorData.detail) {
+          if (Array.isArray(errorData.detail)) {
+            // Validation xatoliklar
+            errorMessage = errorData.detail.map(err => {
+              if (typeof err === 'object' && err.loc && err.msg) {
+                return `${err.loc.join('.')}: ${err.msg}`;
+              }
+              return String(err);
+            }).join('\n');
+          } else {
+            errorMessage = String(errorData.detail);
+          }
+        } else if (errorData.message) {
+          errorMessage = String(errorData.message);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }

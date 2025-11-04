@@ -116,11 +116,40 @@ async def create_attendance(
     current_user: User = Depends(get_current_user),
 ):
     """Yangi davomat yozuvi qo'shish"""
-    attendance = Attendance(**attendance_data.model_dump())
-    db.add(attendance)
-    db.commit()
-    db.refresh(attendance)
-    return attendance
+    # Agar student_name va student_student_id yuborilmasa, Student'dan olish
+    if not attendance_data.student_name or not attendance_data.student_student_id:
+        student = db.query(Student).filter(Student.id == attendance_data.student_id).first()
+        if student:
+            # Schema'ni yangilash
+            attendance_dict = attendance_data.model_dump()
+            attendance_dict['student_name'] = attendance_dict.get('student_name') or f"{student.first_name} {student.last_name}"
+            attendance_dict['student_student_id'] = attendance_dict.get('student_student_id') or student.student_id or ''
+            attendance_data = AttendanceCreate(**attendance_dict)
+    
+    # Mavjud attendance yozuvini tekshirish (bir xil student, date, group, subject)
+    existing = db.query(Attendance).filter(
+        Attendance.student_id == attendance_data.student_id,
+        Attendance.date == attendance_data.date,
+        Attendance.group == attendance_data.group,
+        Attendance.subject == attendance_data.subject
+    ).first()
+    
+    if existing:
+        # Update qilish
+        existing.status = attendance_data.status
+        existing.time = attendance_data.time
+        existing.student_name = attendance_data.student_name
+        existing.student_student_id = attendance_data.student_student_id
+        db.commit()
+        db.refresh(existing)
+        return existing
+    else:
+        # Yangi yaratish
+        attendance = Attendance(**attendance_data.model_dump())
+        db.add(attendance)
+        db.commit()
+        db.refresh(attendance)
+        return attendance
 
 
 @router.put("/{attendance_id}", response_model=AttendanceResponse)
