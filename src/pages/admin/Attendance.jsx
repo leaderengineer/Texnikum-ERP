@@ -23,18 +23,64 @@ import {
 import { Badge } from '../../components/ui/Badge';
 import { Select } from '../../components/ui/Select';
 import useAuthStore from '../../store/authStore';
-import { attendanceAPI, studentsAPI } from '../../services/api';
+import { attendanceAPI, studentsAPI, schedulesAPI } from '../../services/api';
 
 export function Attendance() {
   const { user } = useAuthStore();
   const [attendance, setAttendance] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [groups, setGroups] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [loadingFilters, setLoadingFilters] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedGroup, setSelectedGroup] = useState('AT-21-01');
-  const [selectedSubject, setSelectedSubject] = useState('Web dasturlash');
+  const [selectedGroup, setSelectedGroup] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('');
+
+  // Guruhlar va fanlarni yuklash
+  useEffect(() => {
+    loadFilters();
+  }, []);
+
+  // Filtrlarni yuklash
+  const loadFilters = async () => {
+    try {
+      setLoadingFilters(true);
+      
+      // Talabalardan barcha guruhlarni olish
+      const studentsResponse = await studentsAPI.getAll();
+      const students = studentsResponse.data || [];
+      const uniqueGroups = [...new Set(students.map(s => s.group).filter(Boolean))].sort();
+      setGroups(uniqueGroups);
+      
+      // Dars jadvallaridan barcha fanlarni olish
+      const schedulesResponse = await schedulesAPI.getAll();
+      const schedules = schedulesResponse.data || [];
+      const uniqueSubjects = [...new Set(schedules.map(s => s.subject).filter(Boolean))].sort();
+      setSubjects(uniqueSubjects);
+      
+      // Default qiymatlar
+      if (uniqueGroups.length > 0 && !selectedGroup) {
+        setSelectedGroup(uniqueGroups[0]);
+      }
+      if (uniqueSubjects.length > 0 && !selectedSubject) {
+        setSelectedSubject(uniqueSubjects[0]);
+      }
+    } catch (error) {
+      console.error('Filtrlarni yuklashda xatolik:', error);
+      // Fallback to default values
+      setGroups(['AT-21-01', 'AT-21-02', 'M-21-01', 'I-21-01']);
+      setSubjects(['Web dasturlash', 'Ma\'lumotlar bazasi', 'Python dasturlash', 'JavaScript asoslari']);
+      if (!selectedGroup) setSelectedGroup('AT-21-01');
+      if (!selectedSubject) setSelectedSubject('Web dasturlash');
+    } finally {
+      setLoadingFilters(false);
+    }
+  };
 
   useEffect(() => {
-    loadAttendance();
+    if (selectedGroup && selectedSubject) {
+      loadAttendance();
+    }
   }, [selectedDate, selectedGroup, selectedSubject]);
 
   const loadAttendance = async () => {
@@ -269,8 +315,6 @@ export function Attendance() {
     }
   };
 
-  const groups = ['AT-21-01', 'AT-21-02', 'M-21-01', 'I-21-01'];
-  const subjects = ['Web dasturlash', 'Ma\'lumotlar bazasi', 'Python dasturlash', 'JavaScript asoslari'];
 
   return (
     <div className="space-y-4 sm:space-y-6">
