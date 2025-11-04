@@ -70,25 +70,35 @@ export function Groups() {
       const groupsWithStats = await Promise.all(
         groupsData.map(async (group) => {
           try {
-            const studentsResponse = await studentsAPI.getAll({ group: group.name });
-            const students = studentsResponse.data || [];
-            return {
+            // Backend formatidan frontend formatiga o'tkazish
+            const formattedGroup = {
               id: group.id,
               name: group.name,
               code: group.code || group.name,
               department: group.department || '',
               description: group.description || '',
-              studentsCount: students.length,
               status: group.is_active !== false ? 'active' : 'inactive',
               year: group.year || new Date().getFullYear(),
               curator: group.curator || '',
             };
+            
+            // Talabalar sonini olish
+            try {
+              const studentsResponse = await studentsAPI.getAll({ group: group.name });
+              const students = studentsResponse.data || [];
+              formattedGroup.studentsCount = students.length;
+            } catch (error) {
+              console.error(`Guruh ${group.name} uchun talabalar sonini yuklashda xatolik:`, error);
+              formattedGroup.studentsCount = 0;
+            }
+            
+            return formattedGroup;
           } catch (error) {
-            console.error(`Guruh ${group.name} uchun statistikani yuklashda xatolik:`, error);
+            console.error(`Guruh ${group.id} uchun ma'lumotlarni formatlashda xatolik:`, error);
             return {
               id: group.id,
-              name: group.name,
-              code: group.code || group.name,
+              name: group.name || '',
+              code: group.code || group.name || '',
               department: group.department || '',
               description: group.description || '',
               studentsCount: 0,
