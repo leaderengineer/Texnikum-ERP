@@ -168,12 +168,13 @@ export function TeacherModal({ teacher, onClose }) {
 
           <div className="space-y-2">
             <Label htmlFor="department">Yo'nalish *</Label>
-            <Select id="department" {...register('department')}>
+            <Select id="department" {...register('department')} disabled={loadingDepartments}>
               <option value="">Tanlang...</option>
-              <option value="Axborot texnologiyalari">Axborot texnologiyalari</option>
-              <option value="Muhandislik">Muhandislik</option>
-              <option value="Iqtisodiyot">Iqtisodiyot</option>
-              <option value="Ta'lim">Ta'lim</option>
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.name}>
+                  {dept.name}
+                </option>
+              ))}
             </Select>
             {errors.department && (
               <p className="text-sm text-destructive">{errors.department.message}</p>
