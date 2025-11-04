@@ -124,14 +124,24 @@ async def update_teacher(
     
     update_data = teacher_data.model_dump(exclude_unset=True)
     
+    # Debug: keling, nima kelayotganini ko'ramiz
+    print(f"Update data received: {update_data}")
+    
     # Teacher field'larini yangilash
     for field, value in update_data.items():
         if field in ['email', 'phone', 'department', 'status']:
             # Status'ni to'g'ri formatlash
             if field == 'status' and value is not None:
-                setattr(teacher, field, str(value).lower())
+                normalized_status = str(value).lower()
+                print(f"Setting status to: {normalized_status}")
+                setattr(teacher, field, normalized_status)
             elif value is not None:
                 setattr(teacher, field, value)
+    
+    # Status alohida tekshirish - agar yuborilgan bo'lsa
+    if 'status' in update_data:
+        teacher.status = str(update_data['status']).lower()
+        print(f"Final teacher status: {teacher.status}")
     
     # User ma'lumotlarini yangilash (first_name, last_name, email)
     if teacher.user:
