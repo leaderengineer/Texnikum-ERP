@@ -109,10 +109,18 @@ async def delete_student(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Talabani o'chirish"""
+    from app.models.attendance import Attendance
+    
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
+    # Talabaga bog'liq attendance yozuvlarini o'chirish
+    attendance_records = db.query(Attendance).filter(Attendance.student_id == student_id).all()
+    for attendance in attendance_records:
+        db.delete(attendance)
+    
+    # Talabani o'chirish
     db.delete(student)
     db.commit()
     return {"message": "Student deleted successfully"}
