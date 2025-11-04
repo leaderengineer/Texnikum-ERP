@@ -366,7 +366,10 @@ export function Attendance() {
               <Select
                 value={selectedGroup}
                 onChange={(e) => setSelectedGroup(e.target.value)}
+                className="w-full"
+                disabled={loadingFilters}
               >
+                <option value="">Tanlang...</option>
                 {groups.map((group) => (
                   <option key={group} value={group}>
                     {group}
@@ -378,7 +381,10 @@ export function Attendance() {
               <Select
                 value={selectedSubject}
                 onChange={(e) => setSelectedSubject(e.target.value)}
+                className="w-full"
+                disabled={loadingFilters}
               >
+                <option value="">Tanlang...</option>
                 {subjects.map((subject) => (
                   <option key={subject} value={subject}>
                     {subject}
