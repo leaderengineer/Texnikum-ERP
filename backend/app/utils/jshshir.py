@@ -36,7 +36,8 @@ def parse_jshshir(jshshir: str) -> Dict:
     
     # 20-asr yoki 21-asr?
     year = int(year_str)
-    if year <= 30:  # 30 yoshgacha bo'lsa 2000+, aks holda 1900+
+    # Yilni aniqlash: 00-30 -> 2000-2030, 31-99 -> 1931-1999
+    if year <= 30:
         full_year = 2000 + year
     else:
         full_year = 1900 + year
@@ -45,10 +46,38 @@ def parse_jshshir(jshshir: str) -> Dict:
     day = int(day_str)
     
     # Sana to'g'riligini tekshirish
+    # Agar sana noto'g'ri bo'lsa, warning bilan davom etish
+    birth_date = None
+    date_valid = False
+    date_error = None
+    
     try:
-        birth_date = date(full_year, month, day)
-    except ValueError:
-        raise ValueError(f"Noto'g'ri tug'ilgan sana: {day:02d}.{month:02d}.{full_year}")
+        # Oy va kun to'g'riligini tekshirish
+        if month < 1 or month > 12:
+            date_error = f"Oy noto'g'ri: {month}"
+        elif day < 1 or day > 31:
+            date_error = f"Kun noto'g'ri: {day}"
+        else:
+            # Sana yaratishga harakat qilish
+            try:
+                birth_date = date(full_year, month, day)
+                date_valid = True
+            except ValueError as e:
+                date_error = f"Noto'g'ri tug'ilgan sana: {day:02d}.{month:02d}.{full_year}"
+    except Exception as e:
+        date_error = f"Sana parse qilishda xatolik: {str(e)}"
+    
+    # Agar sana noto'g'ri bo'lsa, default sana yoki 1-yanvar qo'yish
+    if not date_valid or not birth_date:
+        # Default sana sifatida 1-yanvar qo'yamiz
+        try:
+            birth_date = date(full_year, 1, 1)
+        except:
+            # Agar yil ham noto'g'ri bo'lsa, 2000-yil qo'yamiz
+            birth_date = date(2000, 1, 1)
+            full_year = 2000
+            month = 1
+            day = 1
     
     # Jins (7-raqam: toq = erkak, juft = ayol)
     gender_digit = int(jshshir[6])
@@ -65,6 +94,8 @@ def parse_jshshir(jshshir: str) -> Dict:
         'gender': gender,
         'region_code': region_code,
         'jshshir': jshshir,
+        'date_valid': date_valid,
+        'date_error': date_error,
     }
 
 
@@ -97,6 +128,8 @@ def get_person_info_by_jshshir(jshshir: str) -> Dict:
     birth_date = parsed['birth_date']
     gender = parsed['gender']
     region_code = parsed['region_code']
+    date_valid = parsed.get('date_valid', True)
+    date_error = parsed.get('date_error')
     
     # Region kodlari (demo)
     regions = {
@@ -136,6 +169,12 @@ def get_person_info_by_jshshir(jshshir: str) -> Dict:
     # Haqiqiy ism, familiya, manzil ma'lumotlari API'dan keladi
     # Bu yerda faqat JSHSHIR raqamidan chiqarilgan ma'lumotlar qaytariladi
     
+    # Sana haqida eslatma
+    note_parts = []
+    if not date_valid and date_error:
+        note_parts.append(f"Diqqat: {date_error}. JSHSHIR raqamidan chiqarilgan sana noto'g'ri bo'lishi mumkin.")
+    note_parts.append("Bu demo ma'lumotlar. Haqiqiy ism, familiya va manzil ma'lumotlari uchun API integratsiyasi kerak.")
+    
     return {
         'first_name': '',  # Haqiqiy API'dan keladi (hozircha bo'sh)
         'last_name': '',   # Haqiqiy API'dan keladi (hozircha bo'sh)
@@ -152,6 +191,8 @@ def get_person_info_by_jshshir(jshshir: str) -> Dict:
         'address': f'{region_name}',  # Haqiqiy API'dan keladi (hozircha faqat viloyat)
         'district': '',  # Haqiqiy API'dan keladi (hozircha bo'sh)
         'jshshir': jshshir,
-        'note': 'Bu demo ma\'lumotlar. Haqiqiy ism, familiya va manzil ma\'lumotlari uchun API integratsiyasi kerak.',
+        'date_valid': date_valid,
+        'date_error': date_error,
+        'note': ' '.join(note_parts),
     }
 

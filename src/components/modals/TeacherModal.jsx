@@ -99,16 +99,28 @@ export function TeacherModal({ teacher, onClose }) {
           const birthDate = personData.birth_date_formatted || personData.birth_date;
           const gender = personData.gender_uz || personData.gender;
           const region = personData.region || personData.address;
+          const dateValid = personData.date_valid !== false;
+          const dateError = personData.date_error;
+          
+          // Xabar matnini tayyorlash
+          let message = `JSHSHIR raqami topildi!\n\n`;
+          
+          if (dateValid) {
+            message += `Tug'ilgan sana: ${birthDate}\n`;
+          } else {
+            message += `Tug'ilgan sana: ${birthDate} (taxminan)\n`;
+            if (dateError) {
+              message += `Diqqat: ${dateError}\n`;
+            }
+          }
+          
+          message += `Jins: ${gender}\n`;
+          message += `Viloyat: ${region}\n\n`;
+          message += `Eslatma: Ism, familiya va to'liq manzil ma'lumotlari uchun haqiqiy API integratsiyasi kerak.\n`;
+          message += `Iltimos, ism va familiyani qo'lda kiriting.`;
           
           // Foydalanuvchiga xabar berish
-          alert(
-            `JSHSHIR raqami topildi!\n\n` +
-            `Tug'ilgan sana: ${birthDate}\n` +
-            `Jins: ${gender}\n` +
-            `Viloyat: ${region}\n\n` +
-            `Eslatma: Ism, familiya va to'liq manzil ma'lumotlari uchun haqiqiy API integratsiyasi kerak.\n` +
-            `Iltimos, ism va familiyani qo'lda kiriting.`
-          );
+          alert(message);
         } else {
           // Email avtomatik yaratish (ism.familiya@example.com)
           if (personData.first_name && personData.last_name) {
