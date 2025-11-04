@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,7 +7,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
-import { studentsAPI } from '../../services/api';
+import { studentsAPI, departmentsAPI } from '../../services/api';
 
 const studentSchema = z.object({
   firstName: z.string().min(2, 'Ism kamida 2 ta belgi bo\'lishi kerak'),
@@ -21,6 +21,9 @@ const studentSchema = z.object({
 });
 
 export function StudentModal({ student, onClose }) {
+  const [departments, setDepartments] = useState([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(true);
+  
   const {
     register,
     handleSubmit,
@@ -39,6 +42,31 @@ export function StudentModal({ student, onClose }) {
       status: 'active',
     },
   });
+
+  // Yo'nalishlarni yuklash
+  useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        setLoadingDepartments(true);
+        const response = await departmentsAPI.getAll();
+        const departmentsData = response.data || [];
+        setDepartments(departmentsData);
+      } catch (error) {
+        console.error('Yo\'nalishlarni yuklashda xatolik:', error);
+        // Fallback to default departments
+        setDepartments([
+          { id: 1, name: 'Axborot texnologiyalari' },
+          { id: 2, name: 'Muhandislik' },
+          { id: 3, name: 'Iqtisodiyot' },
+          { id: 4, name: 'Ta\'lim' },
+        ]);
+      } finally {
+        setLoadingDepartments(false);
+      }
+    };
+    
+    loadDepartments();
+  }, []);
 
   useEffect(() => {
     if (student) {
@@ -139,12 +167,13 @@ export function StudentModal({ student, onClose }) {
 
             <div className="space-y-2">
               <Label htmlFor="department">Yo'nalish *</Label>
-              <Select id="department" {...register('department')}>
+              <Select id="department" {...register('department')} disabled={loadingDepartments}>
                 <option value="">Tanlang...</option>
-                <option value="Axborot texnologiyalari">Axborot texnologiyalari</option>
-                <option value="Muhandislik">Muhandislik</option>
-                <option value="Iqtisodiyot">Iqtisodiyot</option>
-                <option value="Ta'lim">Ta'lim</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.name}>
+                    {dept.name}
+                  </option>
+                ))}
               </Select>
               {errors.department && (
                 <p className="text-sm text-destructive">{errors.department.message}</p>

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,7 +7,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
-import { teachersAPI } from '../../services/api';
+import { teachersAPI, departmentsAPI } from '../../services/api';
 
 const teacherSchema = z.object({
   firstName: z.string().min(2, 'Ism kamida 2 ta belgi bo\'lishi kerak'),
@@ -19,6 +19,9 @@ const teacherSchema = z.object({
 });
 
 export function TeacherModal({ teacher, onClose }) {
+  const [departments, setDepartments] = useState([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(true);
+  
   const {
     register,
     handleSubmit,
@@ -35,6 +38,31 @@ export function TeacherModal({ teacher, onClose }) {
       status: 'active',
     },
   });
+
+  // Yo'nalishlarni yuklash
+  useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        setLoadingDepartments(true);
+        const response = await departmentsAPI.getAll();
+        const departmentsData = response.data || [];
+        setDepartments(departmentsData);
+      } catch (error) {
+        console.error('Yo\'nalishlarni yuklashda xatolik:', error);
+        // Fallback to default departments
+        setDepartments([
+          { id: 1, name: 'Axborot texnologiyalari' },
+          { id: 2, name: 'Muhandislik' },
+          { id: 3, name: 'Iqtisodiyot' },
+          { id: 4, name: 'Ta\'lim' },
+        ]);
+      } finally {
+        setLoadingDepartments(false);
+      }
+    };
+    
+    loadDepartments();
+  }, []);
 
   useEffect(() => {
     if (teacher) {
