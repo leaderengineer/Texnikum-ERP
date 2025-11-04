@@ -55,47 +55,57 @@ async def create_teacher(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Yangi o'qituvchi qo'shish"""
-    # Email tekshirish
-    existing = db.query(Teacher).filter(Teacher.email == teacher_data.email).first()
-    if existing:
+    # Email tekshirish (User jadvalida)
+    from app.models.user import User
+    existing_user = db.query(User).filter(User.email == teacher_data.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already exists in users")
+    
+    # Email tekshirish (Teacher jadvalida)
+    existing_teacher = db.query(Teacher).filter(Teacher.email == teacher_data.email).first()
+    if existing_teacher:
         raise HTTPException(status_code=400, detail="Email already exists")
     
     # User yaratish
     from app.auth import get_password_hash
-    from app.models.user import User, UserRole
+    from app.models.user import UserRole
     import secrets
     
     # Agar password yuborilmasa, default password yaratish
     password = teacher_data.password or secrets.token_urlsafe(12)
     hashed_password = get_password_hash(password)
     
-    user = User(
-        email=teacher_data.email,
-        first_name=teacher_data.first_name,
-        last_name=teacher_data.last_name,
-        hashed_password=hashed_password,
-        role=UserRole.TEACHER,
-        is_active=True,
-    )
-    db.add(user)
-    db.flush()
-    
-    # Teacher yaratish
-    teacher = Teacher(
-        user_id=user.id,
-        email=teacher_data.email,
-        phone=teacher_data.phone,
-        department=teacher_data.department,
-        status=teacher_data.status,
-    )
-    db.add(teacher)
-    db.commit()
-    db.refresh(teacher)
-    
-    # User relationship'ni yuklash
-    db.refresh(teacher, ["user"])
-    
-    return teacher
+    try:
+        user = User(
+            email=teacher_data.email,
+            first_name=teacher_data.first_name,
+            last_name=teacher_data.last_name,
+            hashed_password=hashed_password,
+            role=UserRole.TEACHER,
+            is_active=True,
+        )
+        db.add(user)
+        db.flush()
+        
+        # Teacher yaratish
+        teacher = Teacher(
+            user_id=user.id,
+            email=teacher_data.email,
+            phone=teacher_data.phone,
+            department=teacher_data.department,
+            status=teacher_data.status,
+        )
+        db.add(teacher)
+        db.commit()
+        db.refresh(teacher)
+        
+        # User relationship'ni yuklash
+        db.refresh(teacher, ["user"])
+        
+        return teacher
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error creating teacher: {str(e)}")
 
 
 @router.put("/{teacher_id}", response_model=TeacherResponse)
