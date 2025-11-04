@@ -17,6 +17,8 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://localhost:3000",
         "http://localhost:5174",
+        # Production - Vercel frontend URL'larini qo'shing
+        # Masalan: "https://your-app-name.vercel.app"
     ]
     
     # Server

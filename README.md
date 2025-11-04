@@ -139,7 +139,9 @@ Backend `http://localhost:8000` da ishga tushadi.
 
 Batafsil ma'lumot uchun `backend/README.md` ni ko'ring.
 
-### Railway Deployment
+### Deployment
+
+#### Backend Deployment (Railway)
 
 Backend'ni Railway'da deploy qilish uchun `backend/DEPLOYMENT.md` ni ko'ring.
 
@@ -149,10 +151,24 @@ Backend'ni Railway'da deploy qilish uchun `backend/DEPLOYMENT.md` ni ko'ring.
 3. Environment variables sozlash
 4. Deploy!
 
-API URL oling va frontend `.env` ga qo'shing:
+API URL oling va frontend environment variable ga qo'shing:
 ```
 VITE_API_BASE_URL=https://your-backend.railway.app/api
 ```
+
+#### Frontend Deployment (Vercel)
+
+**MUHIM**: Vercel'da backend ishlamaydi! Backend'ni Railway'ga deploy qiling.
+
+Frontend'ni Vercel'ga deploy qilish uchun `VERCEL_DEPLOYMENT.md` ni ko'ring.
+
+**Tezkor qadamlar:**
+1. Vercel'ga kirish va GitHub repo'ni ulash
+2. Build settings sozlash (Vite)
+3. Environment variable qo'shish: `VITE_API_BASE_URL=https://your-backend.railway.app/api`
+4. Deploy!
+
+**Batafsil qo'llanma**: `VERCEL_DEPLOYMENT.md` faylini ko'ring.
 
 ## Keyingi qadamlar
 
