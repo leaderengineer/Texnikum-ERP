@@ -106,16 +106,24 @@ async def update_teacher(
     current_user: User = Depends(get_current_active_admin),
 ):
     """O'qituvchi ma'lumotlarini yangilash"""
-    teacher = db.query(Teacher).filter(Teacher.id == teacher_id).first()
+    from sqlalchemy.orm import joinedload
+    
+    teacher = db.query(Teacher).options(joinedload(Teacher.user)).filter(Teacher.id == teacher_id).first()
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher not found")
     
     update_data = teacher_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        setattr(teacher, field, value)
+        if field in ['email', 'phone', 'department', 'status']:
+            setattr(teacher, field, value)
+    
+    # Agar User ma'lumotlari ham yangilanishi kerak bo'lsa
+    if teacher.user and 'email' in update_data:
+        teacher.user.email = update_data['email']
     
     db.commit()
     db.refresh(teacher)
+    db.refresh(teacher, ["user"])
     return teacher
 
 
