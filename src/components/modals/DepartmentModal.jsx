@@ -52,7 +52,7 @@ export function DepartmentModal({ department, onClose }) {
         name: data.name,
         code: data.code || '',
         description: data.description || '',
-        is_active: data.status === 'active',
+        status: data.status, // Backend'da status field'i ishlatiladi
         established_year: data.establishedYear || new Date().getFullYear(),
         head: data.head || '',
       };

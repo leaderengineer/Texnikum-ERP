@@ -63,7 +63,7 @@ export function Departments() {
         teachersCount: dept.teachers_count || 0,
         groupsCount: dept.groups_count || 0,
         coursesCount: dept.courses_count || 0,
-        status: dept.is_active ? 'active' : 'inactive',
+        status: dept.status === 'active' || dept.status === 'Active' || (dept.is_active !== undefined ? (dept.is_active ? 'active' : 'inactive') : 'active'),
         establishedYear: dept.established_year || new Date().getFullYear(),
         head: dept.head || '',
       }));
