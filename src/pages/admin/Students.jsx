@@ -66,14 +66,34 @@ export function Students() {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Bu talabani o\'chirishni tasdiqlaysizmi?')) {
-      try {
-        await studentsAPI.delete(id);
-        setStudents(students.filter((s) => s.id !== id));
-      } catch (error) {
-        console.error('O\'chirishda xatolik:', error);
-        alert('O\'chirishda xatolik yuz berdi');
+    if (!window.confirm('Bu talabani o\'chirishni tasdiqlaysizmi?')) {
+      return;
+    }
+
+    try {
+      await studentsAPI.delete(id);
+      // Ro'yxatni yangilash
+      await loadStudents();
+      // Yoki lokal state'ni yangilash
+      // setStudents(students.filter((s) => s.id !== id));
+    } catch (error) {
+      console.error('O\'chirishda xatolik:', error);
+      
+      // Xatolikni to'g'ri ko'rsatish
+      let errorMessage = 'O\'chirishda xatolik yuz berdi';
+      
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (errorData.detail) {
+          errorMessage = String(errorData.detail);
+        } else if (errorData.message) {
+          errorMessage = String(errorData.message);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
       }
+      
+      alert(errorMessage);
     }
   };
 
