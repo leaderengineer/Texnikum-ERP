@@ -34,15 +34,26 @@ export function Teachers() {
       const teachersData = response.data || [];
       
       // Backend formatidan frontend formatiga o'tkazish
-      const formattedTeachers = teachersData.map((teacher) => ({
-        id: teacher.id,
-        firstName: teacher.first_name || '',
-        lastName: teacher.last_name || '',
-        email: teacher.email || '',
-        phone: teacher.phone || '',
-        department: teacher.department || '',
-        status: teacher.status === 'active' || teacher.status === 'Active' || (teacher.is_active !== undefined ? (teacher.is_active ? 'active' : 'inactive') : 'active'),
-      }));
+      const formattedTeachers = teachersData.map((teacher) => {
+        // Status'ni to'g'ri interpret qilish
+        let normalizedStatus = 'active'; // Default
+        if (teacher.status) {
+          const statusStr = String(teacher.status).toLowerCase().trim();
+          normalizedStatus = (statusStr === 'active') ? 'active' : 'inactive';
+        } else if (teacher.is_active !== undefined) {
+          normalizedStatus = teacher.is_active ? 'active' : 'inactive';
+        }
+        
+        return {
+          id: teacher.id,
+          firstName: teacher.first_name || '',
+          lastName: teacher.last_name || '',
+          email: teacher.email || '',
+          phone: teacher.phone || '',
+          department: teacher.department || '',
+          status: normalizedStatus,
+        };
+      });
       
       setTeachers(formattedTeachers);
     } catch (error) {

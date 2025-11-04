@@ -67,9 +67,13 @@ export function TeacherModal({ teacher, onClose }) {
   useEffect(() => {
     if (teacher) {
       // Status'ni to'g'ri formatda o'rnatish
-      const normalizedStatus = teacher.status === 'active' || teacher.status === 'Active' || teacher.status === true || (typeof teacher.status === 'string' && teacher.status.toLowerCase() === 'active') 
-        ? 'active' 
-        : 'inactive';
+      let normalizedStatus = 'active'; // Default
+      if (teacher.status) {
+        const statusStr = String(teacher.status).toLowerCase().trim();
+        normalizedStatus = (statusStr === 'active') ? 'active' : 'inactive';
+      } else if (teacher.is_active !== undefined) {
+        normalizedStatus = teacher.is_active ? 'active' : 'inactive';
+      }
       
       reset({
         firstName: teacher.firstName || '',
@@ -84,19 +88,21 @@ export function TeacherModal({ teacher, onClose }) {
 
   const onSubmit = async (data) => {
     try {
-      // Status'ni to'g'ri formatlash
-      const normalizedStatus = data.status === 'active' || data.status === 'Active' || data.status === true
-        ? 'active'
-        : 'inactive';
+      // Status'ni to'g'ri formatlash va normalizatsiya qilish
+      let normalizedStatus = 'active'; // Default
+      if (data.status) {
+        const statusStr = String(data.status).toLowerCase().trim();
+        normalizedStatus = (statusStr === 'active') ? 'active' : 'inactive';
+      }
       
-      // Backend API formatiga o'tkazish
+      // Backend API formatiga o'tkazish - status har doim yuborilishi kerak
       const payload = {
         first_name: data.firstName,
         last_name: data.lastName,
         email: data.email,
         phone: data.phone || '',
         department: data.department,
-        status: normalizedStatus,
+        status: normalizedStatus, // Status har doim yuborilishi kerak
       };
 
       if (teacher) {

@@ -88,12 +88,19 @@ async def create_teacher(
         db.flush()
         
         # Teacher yaratish
+        # Status'ni normalizatsiya qilish va default qilish
+        teacher_status = teacher_data.status
+        if not teacher_status or teacher_status.strip() == '':
+            teacher_status = "active"
+        else:
+            teacher_status = str(teacher_status).strip().lower()
+        
         teacher = Teacher(
             user_id=user.id,
             email=teacher_data.email,
             phone=teacher_data.phone,
             department=teacher_data.department,
-            status=teacher_data.status,
+            status=teacher_status,
         )
         db.add(teacher)
         db.commit()
@@ -126,10 +133,22 @@ async def update_teacher(
     # Lekin faqat yuborilgan field'larni yangilash uchun exclude_unset=True ishlatamiz
     update_data = teacher_data.model_dump(exclude_unset=True)
     
-    # Status alohida tekshirish - agar yuborilgan bo'lsa
+    # Status alohida tekshirish va yangilash - agar yuborilgan bo'lsa
     if 'status' in update_data:
-        normalized_status = str(update_data['status']).strip().lower()
-        teacher.status = normalized_status
+        status_value = update_data['status']
+        # Status None yoki bo'sh bo'lmasligini tekshirish
+        if status_value is not None and str(status_value).strip() != '':
+            normalized_status = str(status_value).strip().lower()
+            # Faqat 'active' yoki 'inactive' bo'lishini ta'minlash
+            if normalized_status not in ['active', 'inactive']:
+                # Agar 'Active' yoki 'Inactive' bo'lsa, lowercase qilish
+                normalized_status = normalized_status.lower()
+                if normalized_status not in ['active', 'inactive']:
+                    normalized_status = 'active'  # Default
+            teacher.status = normalized_status
+        else:
+            # Agar status bo'sh yoki None bo'lsa, default 'active' qilish
+            teacher.status = 'active'
     
     # Teacher field'larini yangilash (status bundan tashqari)
     for field, value in update_data.items():
