@@ -67,9 +67,17 @@ export function TeacherModal({ teacher, onClose }) {
   useEffect(() => {
     if (teacher) {
       // Status'ni to'g'ri formatda o'rnatish
+      const normalizedStatus = teacher.status === 'active' || teacher.status === 'Active' || teacher.status === true || (typeof teacher.status === 'string' && teacher.status.toLowerCase() === 'active') 
+        ? 'active' 
+        : 'inactive';
+      
       reset({
-        ...teacher,
-        status: teacher.status === 'active' || teacher.status === 'Active' ? 'active' : 'inactive',
+        firstName: teacher.firstName || '',
+        lastName: teacher.lastName || '',
+        email: teacher.email || '',
+        phone: teacher.phone || '',
+        department: teacher.department || '',
+        status: normalizedStatus,
       });
     }
   }, [teacher, reset]);
