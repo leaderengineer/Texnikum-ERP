@@ -20,7 +20,9 @@ async def get_teachers(
     current_user: User = Depends(get_current_user),
 ):
     """Barcha o'qituvchilar ro'yxati"""
-    query = db.query(Teacher)
+    from sqlalchemy.orm import joinedload
+    
+    query = db.query(Teacher).options(joinedload(Teacher.user))
     
     if department:
         query = query.filter(Teacher.department == department)
