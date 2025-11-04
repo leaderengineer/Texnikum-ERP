@@ -122,23 +122,20 @@ async def update_teacher(
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher not found")
     
-    # model_dump(exclude_unset=True) faqat o'rnatilgan field'larni oladi
-    # Agar status None bo'lsa, u exclude qilinmaydi, lekin biz uni tekshirishimiz kerak
+    # Barcha field'larni olish (exclude_unset=False) - status ham o'zgarishi mumkin
+    # Lekin faqat yuborilgan field'larni yangilash uchun exclude_unset=True ishlatamiz
     update_data = teacher_data.model_dump(exclude_unset=True)
     
-    # Teacher field'larini yangilash
-    for field, value in update_data.items():
-        if field in ['email', 'phone', 'department', 'status']:
-            # Status'ni to'g'ri formatlash
-            if field == 'status' and value is not None:
-                normalized_status = str(value).strip().lower()
-                setattr(teacher, field, normalized_status)
-            elif value is not None:
-                setattr(teacher, field, value)
+    # Status alohida tekshirish - agar yuborilgan bo'lsa
+    if 'status' in update_data:
+        normalized_status = str(update_data['status']).strip().lower()
+        teacher.status = normalized_status
     
-    # Status alohida tekshirish - agar yuborilgan bo'lsa va None bo'lmasa
-    if 'status' in update_data and update_data['status'] is not None:
-        teacher.status = str(update_data['status']).strip().lower()
+    # Teacher field'larini yangilash (status bundan tashqari)
+    for field, value in update_data.items():
+        if field in ['email', 'phone', 'department']:
+            if value is not None:
+                setattr(teacher, field, value)
     
     # User ma'lumotlarini yangilash (first_name, last_name, email)
     if teacher.user:
