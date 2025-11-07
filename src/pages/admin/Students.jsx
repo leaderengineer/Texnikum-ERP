@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, GraduationCap, Mail, Phone, Users, Building2, Filter } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, GraduationCap, Mail, Phone, Users, Building2, Filter, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import {
@@ -11,21 +11,45 @@ import {
 } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Select } from '../../components/ui/Select';
-import { studentsAPI } from '../../services/api';
+import { studentsAPI, groupsAPI, departmentsAPI } from '../../services/api';
 import { StudentModal } from '../../components/modals/StudentModal';
 
 export function Students() {
   const [students, setStudents] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingFilters, setLoadingFilters] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('all');
+  const [filterGroup, setFilterGroup] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
 
   useEffect(() => {
+    loadFilters();
     loadStudents();
   }, []);
+
+  const loadFilters = async () => {
+    try {
+      setLoadingFilters(true);
+      // Guruhlarni yuklash
+      const groupsResponse = await groupsAPI.getAll();
+      const groupsData = groupsResponse.data || [];
+      setGroups(groupsData);
+
+      // Yo'nalishlarni yuklash
+      const departmentsResponse = await departmentsAPI.getAll();
+      const departmentsData = departmentsResponse.data || [];
+      setDepartments(departmentsData);
+    } catch (error) {
+      console.error('Filter ma\'lumotlarini yuklashda xatolik:', error);
+    } finally {
+      setLoadingFilters(false);
+    }
+  };
 
   const loadStudents = async () => {
     try {
@@ -112,15 +136,30 @@ export function Students() {
   };
 
   const filteredStudents = students.filter((student) => {
-    const matchesSearch = `${student.firstName} ${student.lastName} ${student.studentId} ${student.email} ${student.group}`
+    const matchesSearch = `${student.firstName} ${student.lastName} ${student.studentId} ${student.email} ${student.group} ${student.department}`
       .toLowerCase()
       .includes(searchTerm.toLowerCase());
     const matchesDepartment = filterDepartment === 'all' || student.department === filterDepartment;
+    const matchesGroup = filterGroup === 'all' || student.group === filterGroup;
     const matchesStatus = filterStatus === 'all' || student.status === filterStatus;
-    return matchesSearch && matchesDepartment && matchesStatus;
+    return matchesSearch && matchesDepartment && matchesGroup && matchesStatus;
   });
 
-  const uniqueDepartments = [...new Set(students.map(s => s.department))];
+  // Filterlarni tozalash funksiyasi
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterDepartment('all');
+    setFilterGroup('all');
+    setFilterStatus('all');
+  };
+
+  // Faol filterlar soni
+  const activeFiltersCount = [
+    searchTerm,
+    filterDepartment !== 'all',
+    filterGroup !== 'all',
+    filterStatus !== 'all',
+  ].filter(Boolean).length;
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -145,41 +184,117 @@ export function Students() {
         </CardHeader>
         <CardContent>
           <div className="mb-6 space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4">
+            {/* Qidirish va Filterlar */}
+            <div className="space-y-3">
+              {/* Qidirish input */}
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  placeholder="Qidirish (ism, ID, email, guruh)..."
+                  placeholder="Qidirish (ism, familiya, ID, email, guruh, yo'nalish)..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+
+              {/* Filterlar */}
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Select
                   value={filterDepartment}
                   onChange={(e) => setFilterDepartment(e.target.value)}
-                  className="w-full sm:w-[180px]"
+                  disabled={loadingFilters}
+                  className="w-full sm:w-[200px]"
                 >
                   <option value="all">Barcha yo'nalishlar</option>
-                  {uniqueDepartments.map((dept) => (
-                    <option key={dept} value={dept}>{dept}</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.name}>
+                      {dept.name}
+                    </option>
                   ))}
                 </Select>
+
+                <Select
+                  value={filterGroup}
+                  onChange={(e) => setFilterGroup(e.target.value)}
+                  disabled={loadingFilters}
+                  className="w-full sm:w-[200px]"
+                >
+                  <option value="all">Barcha guruhlar</option>
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.name}>
+                      {group.name}
+                    </option>
+                  ))}
+                </Select>
+
                 <Select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  className="w-full sm:w-[140px]"
+                  className="w-full sm:w-[150px]"
                 >
                   <option value="all">Barcha holatlar</option>
                   <option value="active">Faol</option>
                   <option value="inactive">Nofaol</option>
                 </Select>
+
+                {activeFiltersCount > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={clearFilters}
+                    className="w-full sm:w-auto"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Tozalash ({activeFiltersCount})
+                  </Button>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Filter className="h-4 w-4" />
-              <span>Jami: {filteredStudents.length} ta talaba</span>
+
+            {/* Natijalar va statistika */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 border-t">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Filter className="h-4 w-4" />
+                <span>
+                  Jami: <span className="font-semibold text-foreground">{filteredStudents.length}</span> ta talaba
+                  {filteredStudents.length !== students.length && (
+                    <span className="ml-1">
+                      (Jami: {students.length} ta)
+                    </span>
+                  )}
+                </span>
+              </div>
+              {activeFiltersCount > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {searchTerm && (
+                    <Badge variant="secondary" className="text-xs">
+                      Qidiruv: "{searchTerm}"
+                    </Badge>
+                  )}
+                  {filterDepartment !== 'all' && (
+                    <Badge variant="secondary" className="text-xs">
+                      Yo'nalish: {filterDepartment}
+                    </Badge>
+                  )}
+                  {filterGroup !== 'all' && (
+                    <Badge variant="secondary" className="text-xs">
+                      Guruh: {filterGroup}
+                    </Badge>
+                  )}
+                  {filterStatus !== 'all' && (
+                    <Badge variant="secondary" className="text-xs">
+                      Holat: {filterStatus === 'active' ? 'Faol' : 'Nofaol'}
+                    </Badge>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
