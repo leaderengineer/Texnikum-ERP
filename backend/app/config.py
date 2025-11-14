@@ -25,6 +25,15 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     
+    # Database Connection Pool Settings (PostgreSQL uchun)
+    DB_POOL_SIZE: int = 20  # Asosiy connection pool hajmi
+    DB_MAX_OVERFLOW: int = 40  # Qo'shimcha connectionlar
+    DB_POOL_RECYCLE: int = 3600  # Connection recycle vaqti (sekundlarda)
+    
+    # Performance Settings
+    API_RATE_LIMIT_PER_MINUTE: int = 100  # Har bir IP uchun daqiqada so'rovlar soni
+    CACHE_TTL_SECONDS: int = 300  # Cache TTL (5 daqiqa)
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

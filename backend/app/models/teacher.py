@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Index
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -11,10 +11,15 @@ class Teacher(Base):
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     phone = Column(String, nullable=True)
-    department = Column(String, nullable=False)
-    status = Column(String, default="active")
+    department = Column(String, nullable=False, index=True)  # Index qo'shildi
+    status = Column(String, default="active", index=True)  # Index qo'shildi
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Composite index - department va status bo'yicha qidirish uchun
+    __table_args__ = (
+        Index('idx_teacher_dept_status', 'department', 'status'),
+    )
 
     user = relationship("User", backref="teacher_profile")
 
