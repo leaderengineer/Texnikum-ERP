@@ -1,28 +1,33 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.database import get_db
 from app.models.user import User
 from app.models.student import Student
 from app.schemas.student import StudentCreate, StudentUpdate, StudentResponse
+from app.schemas.pagination import PaginatedResponse, PaginationMeta
 from app.auth import get_current_user, get_current_active_admin
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[StudentResponse])
+@router.get("/", response_model=PaginatedResponse[StudentResponse])
 async def get_students(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
+    page: int = Query(1, ge=1, description="Sahifa raqami"),
+    limit: int = Query(20, ge=1, le=100, description="Har bir sahifadagi elementlar soni"),
     group: Optional[str] = None,
     department: Optional[str] = None,
     status: Optional[str] = None,
+    search: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Barcha talabalar ro'yxati"""
+    """Barcha talabalar ro'yxati (pagination bilan)"""
+    # Base query
     query = db.query(Student)
     
+    # Filterlar
     if group:
         query = query.filter(Student.group == group)
     if department:
@@ -30,8 +35,27 @@ async def get_students(
     if status:
         query = query.filter(Student.status == status)
     
-    students = query.offset(skip).limit(limit).all()
-    return students
+    # Qidirish (ism, familiya, email, student_id bo'yicha)
+    if search:
+        search_filter = (
+            Student.first_name.ilike(f"%{search}%") |
+            Student.last_name.ilike(f"%{search}%") |
+            Student.email.ilike(f"%{search}%") |
+            Student.student_id.ilike(f"%{search}%")
+        )
+        query = query.filter(search_filter)
+    
+    # Total count (filterlardan keyin)
+    total = query.count()
+    
+    # Pagination
+    skip = (page - 1) * limit
+    students = query.order_by(Student.created_at.desc()).offset(skip).limit(limit).all()
+    
+    # Pagination metadata
+    meta = PaginationMeta.create(total=total, page=page, limit=limit)
+    
+    return PaginatedResponse(items=students, meta=meta)
 
 
 @router.get("/{student_id}", response_model=StudentResponse)

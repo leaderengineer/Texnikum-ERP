@@ -13,6 +13,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Select } from '../../components/ui/Select';
 import { studentsAPI, groupsAPI, departmentsAPI } from '../../services/api';
 import { StudentModal } from '../../components/modals/StudentModal';
+import { Pagination } from '../../components/ui/Pagination';
 
 export function Students() {
   const [students, setStudents] = useState([]);
@@ -26,11 +27,20 @@ export function Students() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   useEffect(() => {
     loadFilters();
-    loadStudents();
   }, []);
+
+  useEffect(() => {
+    loadStudents();
+  }, [currentPage, itemsPerPage, filterDepartment, filterGroup, filterStatus, searchTerm]);
 
   const loadFilters = async () => {
     try {
@@ -54,8 +64,33 @@ export function Students() {
   const loadStudents = async () => {
     try {
       setLoading(true);
-      const response = await studentsAPI.getAll();
-      const studentsData = response.data || [];
+      
+      // Backend'ga pagination parametrlarini yuborish
+      const params = {
+        page: currentPage,
+        limit: itemsPerPage,
+      };
+      
+      // Filterlar
+      if (filterDepartment !== 'all') {
+        params.department = filterDepartment;
+      }
+      if (filterGroup !== 'all') {
+        params.group = filterGroup;
+      }
+      if (filterStatus !== 'all') {
+        params.status = filterStatus;
+      }
+      if (searchTerm) {
+        params.search = searchTerm;
+      }
+      
+      const response = await studentsAPI.getAll(params);
+      
+      // Pagination response format: { items: [...], meta: { total, page, limit, ... } }
+      const responseData = response.data || {};
+      const studentsData = responseData.items || [];
+      const meta = responseData.meta || {};
       
       // Backend formatidan frontend formatiga o'tkazish
       const formattedStudents = studentsData.map((student) => ({
@@ -71,9 +106,18 @@ export function Students() {
       }));
       
       setStudents(formattedStudents);
+      setTotalItems(meta.total || 0);
+      setTotalPages(meta.total_pages || 0);
+      
+      // Agar joriy sahifa mavjud bo'lmasa, birinchi sahifaga o'tish
+      if (meta.total_pages > 0 && currentPage > meta.total_pages) {
+        setCurrentPage(1);
+      }
     } catch (error) {
       console.error('Talabalarni yuklashda xatolik:', error);
       setStudents([]);
+      setTotalItems(0);
+      setTotalPages(0);
     } finally {
       setLoading(false);
     }
@@ -135,15 +179,9 @@ export function Students() {
     return colors[department] || 'from-gray-500 to-gray-600';
   };
 
-  const filteredStudents = students.filter((student) => {
-    const matchesSearch = `${student.firstName} ${student.lastName} ${student.studentId} ${student.email} ${student.group} ${student.department}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    const matchesDepartment = filterDepartment === 'all' || student.department === filterDepartment;
-    const matchesGroup = filterGroup === 'all' || student.group === filterGroup;
-    const matchesStatus = filterStatus === 'all' || student.status === filterStatus;
-    return matchesSearch && matchesDepartment && matchesGroup && matchesStatus;
-  });
+  // Frontend'da filterlash endi kerak emas, chunki backend'da qilinadi
+  // Lekin eski kod bilan mos kelish uchun filteredStudents o'zgaruvchisini saqlaymiz
+  const filteredStudents = students;
 
   // Filterlarni tozalash funksiyasi
   const clearFilters = () => {
@@ -151,7 +189,28 @@ export function Students() {
     setFilterDepartment('all');
     setFilterGroup('all');
     setFilterStatus('all');
+    setCurrentPage(1); // Filter tozalanganda birinchi sahifaga qaytish
   };
+
+  // Pagination handlers
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Items per page o'zgarganda birinchi sahifaga qaytish
+  };
+
+  // Search debounce - qidiruvni biroz kechiktirish
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setCurrentPage(1); // Qidiruv o'zgarganda birinchi sahifaga qaytish
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Faol filterlar soni
   const activeFiltersCount = [
@@ -260,17 +319,17 @@ export function Students() {
 
             {/* Natijalar va statistika */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 border-t">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Filter className="h-4 w-4" />
-                <span>
-                  Jami: <span className="font-semibold text-foreground">{filteredStudents.length}</span> ta talaba
-                  {filteredStudents.length !== students.length && (
-                    <span className="ml-1">
-                      (Jami: {students.length} ta)
-                    </span>
-                  )}
-                </span>
-              </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Filter className="h-4 w-4" />
+              <span>
+                Jami: <span className="font-semibold text-foreground">{totalItems}</span> ta talaba
+                {totalItems !== filteredStudents.length && (
+                  <span className="ml-1">
+                    (Ko'rsatilmoqda: {filteredStudents.length} ta)
+                  </span>
+                )}
+              </span>
+            </div>
               {activeFiltersCount > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {searchTerm && (
@@ -381,6 +440,20 @@ export function Students() {
                   </Card>
                 ))
               )}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!loading && totalPages > 0 && (
+            <div className="mt-6 pt-4 border-t">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                itemsPerPage={itemsPerPage}
+                onPageChange={handlePageChange}
+                onItemsPerPageChange={handleItemsPerPageChange}
+              />
             </div>
           )}
         </CardContent>
