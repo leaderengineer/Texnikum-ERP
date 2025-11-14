@@ -1,19 +1,25 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from app.database import get_db
 from app.models.user import User
 from app.models.student import Student
 from app.schemas.student import StudentCreate, StudentUpdate, StudentResponse
 from app.schemas.pagination import PaginatedResponse, PaginationMeta
 from app.auth import get_current_user, get_current_active_admin
+from app.config import settings
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.get("/", response_model=PaginatedResponse[StudentResponse])
+@limiter.limit(f"{settings.API_RATE_LIMIT_PER_MINUTE}/minute")
 async def get_students(
+    request: Request,
     page: int = Query(1, ge=1, description="Sahifa raqami"),
     limit: int = Query(20, ge=1, le=100, description="Har bir sahifadagi elementlar soni"),
     group: Optional[str] = None,
@@ -83,7 +89,9 @@ async def get_students_by_group(
 
 
 @router.post("/", response_model=StudentResponse)
+@limiter.limit("30/minute")  # Create uchun kamroq limit
 async def create_student(
+    request: Request,
     student_data: StudentCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),

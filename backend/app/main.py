@@ -1,5 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from app.database import engine, Base
 from app.config import settings
 from app.routes import api_router
@@ -7,12 +11,19 @@ from app.routes import api_router
 # Database jadvalarni yaratish
 Base.metadata.create_all(bind=engine)
 
+# Rate Limiter sozlash
+limiter = Limiter(key_func=get_remote_address)
+
 # FastAPI app
 app = FastAPI(
     title="Texnikum ERP API",
     description="Zamonaviy Texnikum uchun ERP tizimi API",
     version="1.0.0",
 )
+
+# Rate limiter'ni app'ga biriktirish
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS sozlamalari
 app.add_middleware(
@@ -38,9 +49,27 @@ async def root():
 
 
 @app.get("/health")
-async def health_check():
+@limiter.limit("100/minute")
+async def health_check(request: Request):
     """Health check endpoint"""
     return {"status": "healthy"}
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """Rate limit xatolik handler"""
+    response = JSONResponse(
+        status_code=429,
+        content={
+            "detail": f"Rate limit exceeded: {exc.detail}",
+            "retry_after": exc.retry_after
+        }
+    )
+    response = request.app.state.limiter._inject_headers(
+        response,
+        request.state.view_rate_limit
+    )
+    return response
 
 
 if __name__ == "__main__":
