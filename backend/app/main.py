@@ -38,6 +38,32 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api")
 
 
+@app.get("/api")
+async def api_info():
+    """API endpoint'lari haqida ma'lumot"""
+    return {
+        "message": "Texnikum ERP API",
+        "version": "1.0.0",
+        "endpoints": {
+            "authentication": "/api/auth",
+            "students": "/api/students",
+            "teachers": "/api/teachers",
+            "groups": "/api/groups",
+            "departments": "/api/departments",
+            "schedules": "/api/schedules",
+            "attendance": "/api/attendance",
+            "books": "/api/books",
+            "dashboard": "/api/dashboard",
+            "audit_logs": "/api/audit-logs",
+        },
+        "docs": {
+            "swagger": "/docs",
+            "redoc": "/redoc",
+        },
+        "health": "/health",
+    }
+
+
 @app.get("/")
 async def root():
     """Root endpoint"""
