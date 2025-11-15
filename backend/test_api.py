@@ -27,7 +27,7 @@ def test_api_connection():
         return False
 
 
-def get_auth_token(email="admin@texnikum.uz", password="admin123"):
+def get_auth_token(email="admin@example.com", password="admin123"):
     """Login qilib token olish"""
     try:
         response = requests.post(
