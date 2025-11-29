@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, GraduationCap, Mail, Phone, Users, Building2, Filter, X } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, GraduationCap, Mail, Phone, Users, Building2, Filter, X, LayoutGrid, List } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import {
@@ -33,6 +33,12 @@ export function Students() {
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  
+  // View mode state (card or table)
+  const [viewMode, setViewMode] = useState(() => {
+    const saved = localStorage.getItem('studentsViewMode');
+    return saved || 'card';
+  });
 
   useEffect(() => {
     loadFilters();
@@ -220,6 +226,11 @@ export function Students() {
     filterStatus !== 'all',
   ].filter(Boolean).length;
 
+  // View mode ni localStorage'ga saqlash
+  useEffect(() => {
+    localStorage.setItem('studentsViewMode', viewMode);
+  }, [viewMode]);
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
@@ -330,6 +341,7 @@ export function Students() {
                 )}
               </span>
             </div>
+            <div className="flex items-center gap-2">
               {activeFiltersCount > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {searchTerm && (
@@ -354,92 +366,217 @@ export function Students() {
                   )}
                 </div>
               )}
+              {/* View Mode Toggle Buttons */}
+              <div className="flex items-center gap-1 border rounded-lg p-1 bg-muted">
+                <Button
+                  variant={viewMode === 'card' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('card')}
+                  className="h-9 px-3"
+                  title="Card ko'rinish"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'table' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('table')}
+                  className="h-9 px-3"
+                  title="Table ko'rinish"
+                >
+                  <List className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
             </div>
           </div>
 
           {loading ? (
             <div className="py-12 text-center text-muted-foreground">Yuklanmoqda...</div>
-          ) : (
+          ) : filteredStudents.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              Talabalar topilmadi
+            </div>
+          ) : viewMode === 'card' ? (
+            // Card View
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {filteredStudents.length === 0 ? (
-                <div className="col-span-full text-center py-12 text-muted-foreground">
-                  Talabalar topilmadi
-                </div>
-              ) : (
-                filteredStudents.map((student) => (
-                  <Card
-                    key={student.id}
-                    className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/50"
-                  >
-                    <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${getDepartmentColor(student.department)}`}></div>
-                    
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    
-                    <CardHeader className="relative z-10 pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={`h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-gradient-to-br ${getDepartmentColor(student.department)} flex items-center justify-center text-white text-base sm:text-xl font-bold shadow-lg shrink-0`}>
+              {filteredStudents.map((student) => (
+                <Card
+                  key={student.id}
+                  className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 border-2 hover:border-primary/50"
+                >
+                  <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${getDepartmentColor(student.department)}`}></div>
+                  
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  
+                  <CardHeader className="relative z-10 pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className={`h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-gradient-to-br ${getDepartmentColor(student.department)} flex items-center justify-center text-white text-base sm:text-xl font-bold shadow-lg shrink-0`}>
+                          {getInitials(student.firstName, student.lastName)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <CardTitle className="text-base sm:text-lg font-semibold mb-1 truncate">
+                            {student.firstName} {student.lastName}
+                          </CardTitle>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <GraduationCap className="h-3 w-3" />
+                            <span className="font-mono">{student.studentId}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant={student.status === 'active' ? 'default' : 'secondary'} className="shrink-0">
+                        {student.status === 'active' ? 'Faol' : 'Nofaol'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="relative z-10 pt-0 space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Mail className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{student.email}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Phone className="h-4 w-4 shrink-0" />
+                        <span>{student.phone}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Users className="h-4 w-4 shrink-0" />
+                        <span className="font-medium">{student.group}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Building2 className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{student.department}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(student)}
+                        className="flex-1 sm:flex-none touch-manipulation"
+                      >
+                        <Edit className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Tahrirlash</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(student.id)}
+                        className="text-destructive hover:text-destructive touch-manipulation"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            // Table View
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-3 font-semibold text-sm">Ism Familiya</th>
+                    <th className="text-left p-3 font-semibold text-sm">
+                      <div className="flex items-center gap-2">
+                        <GraduationCap className="h-4 w-4" />
+                        ID
+                      </div>
+                    </th>
+                    <th className="text-left p-3 font-semibold text-sm">
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4" />
+                        Email
+                      </div>
+                    </th>
+                    <th className="text-left p-3 font-semibold text-sm">
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4" />
+                        Telefon
+                      </div>
+                    </th>
+                    <th className="text-left p-3 font-semibold text-sm min-w-[120px]">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Guruh
+                      </div>
+                    </th>
+                    <th className="text-left p-3 font-semibold text-sm">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        Yo'nalish
+                      </div>
+                    </th>
+                    <th className="text-left p-3 font-semibold text-sm">Holat</th>
+                    <th className="text-right p-3 font-semibold text-sm">Amallar</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredStudents.map((student) => (
+                    <tr
+                      key={student.id}
+                      className="border-b hover:bg-muted/50 transition-colors"
+                    >
+                      <td className="p-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`h-10 w-10 rounded-full bg-gradient-to-br ${getDepartmentColor(student.department)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
                             {getInitials(student.firstName, student.lastName)}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <CardTitle className="text-base sm:text-lg font-semibold mb-1 truncate">
-                              {student.firstName} {student.lastName}
-                            </CardTitle>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <GraduationCap className="h-3 w-3" />
-                              <span className="font-mono">{student.studentId}</span>
-                            </div>
+                          <div>
+                            <div className="font-medium">{student.firstName} {student.lastName}</div>
                           </div>
                         </div>
-                        <Badge variant={student.status === 'active' ? 'default' : 'secondary'} className="shrink-0">
+                      </td>
+                      <td className="p-3">
+                        <span className="font-mono text-sm">{student.studentId}</span>
+                      </td>
+                      <td className="p-3">
+                        <span className="text-sm truncate block max-w-[250px]">{student.email}</span>
+                      </td>
+                      <td className="p-3">
+                        <span className="text-sm">{student.phone}</span>
+                      </td>
+                      <td className="p-3 min-w-[120px]">
+                        <span className="text-sm whitespace-nowrap">{student.group}</span>
+                      </td>
+                      <td className="p-3">
+                        <span className="text-sm truncate block max-w-[250px]">{student.department}</span>
+                      </td>
+                      <td className="p-3">
+                        <Badge variant={student.status === 'active' ? 'default' : 'secondary'}>
                           {student.status === 'active' ? 'Faol' : 'Nofaol'}
                         </Badge>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="relative z-10 pt-0 space-y-3">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Mail className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{student.email}</span>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(student)}
+                            className="h-8 w-8 p-0"
+                            title="Tahrirlash"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(student.id)}
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            title="O'chirish"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Phone className="h-4 w-4 shrink-0" />
-                          <span>{student.phone}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Users className="h-4 w-4 shrink-0" />
-                          <span className="font-medium">{student.group}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Building2 className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{student.department}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end gap-2 pt-2 border-t">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(student)}
-                          className="flex-1 sm:flex-none touch-manipulation"
-                        >
-                          <Edit className="h-4 w-4 sm:mr-1" />
-                          <span className="hidden sm:inline">Tahrirlash</span>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(student.id)}
-                          className="text-destructive hover:text-destructive touch-manipulation"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
 

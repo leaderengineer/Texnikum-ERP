@@ -46,3 +46,6 @@ Thumbs.db
 # Alembic
 alembic/versions/*.pyc
 
+# Uploads
+uploads/
+

@@ -11,6 +11,23 @@ from app.routes import api_router
 # Database jadvalarni yaratish
 Base.metadata.create_all(bind=engine)
 
+# avatar_url maydonini qo'shish (agar yo'q bo'lsa)
+try:
+    from sqlalchemy import text, inspect
+    inspector = inspect(engine)
+    
+    # users jadvali mavjudligini tekshirish
+    if 'users' in inspector.get_table_names():
+        columns = [col['name'] for col in inspector.get_columns('users')]
+        if 'avatar_url' not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url TEXT"))
+                print("✓ avatar_url maydoni database'ga qo'shildi!")
+        else:
+            print("✓ avatar_url maydoni allaqachon mavjud")
+except Exception as e:
+    print(f"⚠ Database migration xatolik (ehtimol maydon allaqachon mavjud): {e}")
+
 # Rate Limiter sozlash
 limiter = Limiter(key_func=get_remote_address)
 
@@ -28,10 +45,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 # CORS sozlamalari
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # API routes
@@ -55,6 +73,7 @@ async def api_info():
             "books": "/api/books",
             "dashboard": "/api/dashboard",
             "audit_logs": "/api/audit-logs",
+            "lesson_materials": "/api/lesson-materials",
         },
         "docs": {
             "swagger": "/docs",

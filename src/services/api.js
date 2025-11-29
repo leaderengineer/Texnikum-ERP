@@ -45,6 +45,10 @@ export const authAPI = {
   logout: () => apiClient.post('/auth/logout'),
   refreshToken: () => apiClient.post('/auth/refresh'),
   getCurrentUser: () => apiClient.get('/auth/me'),
+  updateCurrentUser: (data) => apiClient.put('/auth/me', data),
+  requestPasswordReset: (email) => apiClient.post('/auth/password-reset/request', { email }),
+  verifyPasswordResetCode: (email, code) => apiClient.post('/auth/password-reset/verify', { email, code }),
+  confirmPasswordReset: (email, code, newPassword) => apiClient.post('/auth/password-reset/confirm', { email, code, new_password: newPassword }),
 };
 
 // Teachers
@@ -68,7 +72,7 @@ export const studentsAPI = {
 
 // Groups
 export const groupsAPI = {
-  getAll: () => apiClient.get('/groups'),
+  getAll: (params) => apiClient.get('/groups', { params }),
   getById: (id) => apiClient.get(`/groups/${id}`),
   create: (data) => apiClient.post('/groups', data),
   update: (id, data) => apiClient.put(`/groups/${id}`, data),
@@ -91,7 +95,14 @@ export const schedulesAPI = {
   create: (data) => apiClient.post('/schedules', data),
   update: (id, data) => apiClient.put(`/schedules/${id}`, data),
   delete: (id) => apiClient.delete(`/schedules/${id}`),
-  getByGroup: (groupId) => apiClient.get(`/schedules/group/${groupId}`),
+  getByGroup: (group) => apiClient.get(`/schedules/group/${group}`),
+};
+
+// Institutions
+export const institutionsAPI = {
+  getAll: () => apiClient.get('/institutions'),
+  getById: (id) => apiClient.get(`/institutions/${id}`),
+  update: (id, data) => apiClient.put(`/institutions/${id}`, data),
 };
 
 // Attendance (Davomat)
@@ -101,9 +112,21 @@ export const attendanceAPI = {
   create: (data) => apiClient.post('/attendance', data),
   update: (id, data) => apiClient.put(`/attendance/${id}`, data),
   delete: (id) => apiClient.delete(`/attendance/${id}`),
-  getByDate: (date) => apiClient.get(`/attendance/date/${date}`),
+  getByDate: (date, params) => apiClient.get(`/attendance/date/${date}`, { params }),
   getByStudent: (studentId, params) => apiClient.get(`/attendance/student/${studentId}`, { params }),
   getStatistics: (params) => apiClient.get('/attendance/statistics', { params }),
+};
+
+// Grades (Baholash)
+export const gradesAPI = {
+  getAll: (params) => apiClient.get('/grades', { params }),
+  getById: (id) => apiClient.get(`/grades/${id}`),
+  create: (data) => apiClient.post('/grades', data),
+  update: (id, data) => apiClient.put(`/grades/${id}`, data),
+  delete: (id) => apiClient.delete(`/grades/${id}`),
+  getByStudent: (studentId, params) => apiClient.get(`/grades/student/${studentId}`, { params }),
+  getByGroupSubjectDate: (group, subject, date) => apiClient.get(`/grades/group/${group}/subject/${subject}/date/${date}`),
+  getStatistics: (group, subject, params) => apiClient.get(`/grades/statistics/group/${group}/subject/${subject}`, { params }),
 };
 
 // Library (Kutubxona)
@@ -130,6 +153,40 @@ export const dashboardAPI = {
 export const auditAPI = {
   getAll: (params) => apiClient.get('/audit-logs', { params }),
   getById: (id) => apiClient.get(`/audit-logs/${id}`),
+};
+
+// Lesson Materials (Dars materiallari)
+export const lessonMaterialsAPI = {
+  getAll: (params) => apiClient.get('/lesson-materials', { params }),
+  getById: (id) => apiClient.get(`/lesson-materials/${id}`),
+  create: (formData) => apiClient.post('/lesson-materials', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  update: (id, data) => apiClient.put(`/lesson-materials/${id}`, data),
+  delete: (id) => apiClient.delete(`/lesson-materials/${id}`),
+  download: (id) => apiClient.get(`/lesson-materials/${id}/download`, {
+    responseType: 'blob',
+  }),
+  getViewUrl: (id) => {
+    const token = localStorage.getItem('token');
+    const baseURL = apiClient.defaults.baseURL;
+    return `${baseURL}/lesson-materials/${id}/view?token=${token}`;
+  },
+};
+
+// Upload
+export const uploadAPI = {
+  uploadAvatar: (formData) => apiClient.post('/upload/avatar', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  getAvatar: (filename) => {
+    const baseURL = apiClient.defaults.baseURL;
+    return `${baseURL}/upload/avatar/${filename}`;
+  },
 };
 
 export default apiClient;

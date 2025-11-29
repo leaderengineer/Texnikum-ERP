@@ -13,14 +13,14 @@ router = APIRouter()
 @router.get("/", response_model=List[GroupResponse])
 async def get_groups(
     skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
+    limit: int = Query(100, ge=1, le=1000),
     department: Optional[str] = None,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Barcha guruhlar ro'yxati"""
-    query = db.query(Group)
+    query = db.query(Group).filter(Group.institution_id == current_user.institution_id)
     
     if department:
         query = query.filter(Group.department == department)
@@ -39,7 +39,10 @@ async def get_group(
     current_user: User = Depends(get_current_user),
 ):
     """Guruh ma'lumotlari"""
-    group = db.query(Group).filter(Group.id == group_id).first()
+    group = db.query(Group).filter(
+        Group.id == group_id,
+        Group.institution_id == current_user.institution_id
+    ).first()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     return group
@@ -52,16 +55,25 @@ async def create_group(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Yangi guruh qo'shish"""
-    # Name va code tekshirish
-    existing_name = db.query(Group).filter(Group.name == group_data.name).first()
+    # Name va code tekshirish (faqat joriy institution'da)
+    existing_name = db.query(Group).filter(
+        Group.name == group_data.name,
+        Group.institution_id == current_user.institution_id
+    ).first()
     if existing_name:
         raise HTTPException(status_code=400, detail="Group name already exists")
     
-    existing_code = db.query(Group).filter(Group.code == group_data.code).first()
+    existing_code = db.query(Group).filter(
+        Group.code == group_data.code,
+        Group.institution_id == current_user.institution_id
+    ).first()
     if existing_code:
         raise HTTPException(status_code=400, detail="Group code already exists")
     
-    group = Group(**group_data.model_dump())
+    # Institution_id qo'shish
+    group_data_dict = group_data.model_dump()
+    group_data_dict['institution_id'] = current_user.institution_id
+    group = Group(**group_data_dict)
     db.add(group)
     db.commit()
     db.refresh(group)
@@ -76,18 +88,27 @@ async def update_group(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Guruh ma'lumotlarini yangilash"""
-    group = db.query(Group).filter(Group.id == group_id).first()
+    group = db.query(Group).filter(
+        Group.id == group_id,
+        Group.institution_id == current_user.institution_id
+    ).first()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     
-    # Name va code tekshirish
+    # Name va code tekshirish (faqat joriy institution'da)
     if group_data.name and group_data.name != group.name:
-        existing_name = db.query(Group).filter(Group.name == group_data.name).first()
+        existing_name = db.query(Group).filter(
+            Group.name == group_data.name,
+            Group.institution_id == current_user.institution_id
+        ).first()
         if existing_name:
             raise HTTPException(status_code=400, detail="Group name already exists")
     
     if group_data.code and group_data.code != group.code:
-        existing_code = db.query(Group).filter(Group.code == group_data.code).first()
+        existing_code = db.query(Group).filter(
+            Group.code == group_data.code,
+            Group.institution_id == current_user.institution_id
+        ).first()
         if existing_code:
             raise HTTPException(status_code=400, detail="Group code already exists")
     
@@ -107,7 +128,10 @@ async def delete_group(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Guruhni o'chirish"""
-    group = db.query(Group).filter(Group.id == group_id).first()
+    group = db.query(Group).filter(
+        Group.id == group_id,
+        Group.institution_id == current_user.institution_id
+    ).first()
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     

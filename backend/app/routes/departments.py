@@ -16,7 +16,10 @@ async def get_departments(
     current_user: User = Depends(get_current_user),
 ):
     """Barcha yo'nalishlar ro'yxati"""
-    departments = db.query(Department).all()
+    departments = db.query(Department).filter(
+        Department.institution_id == current_user.institution_id,
+        Department.status == "active"
+    ).all()
     return departments
 
 
@@ -40,16 +43,25 @@ async def create_department(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Yangi yo'nalish qo'shish"""
-    # Name va code tekshirish
-    existing_name = db.query(Department).filter(Department.name == department_data.name).first()
+    # Name va code tekshirish (faqat joriy institution'da)
+    existing_name = db.query(Department).filter(
+        Department.name == department_data.name,
+        Department.institution_id == current_user.institution_id
+    ).first()
     if existing_name:
         raise HTTPException(status_code=400, detail="Department name already exists")
     
-    existing_code = db.query(Department).filter(Department.code == department_data.code).first()
+    existing_code = db.query(Department).filter(
+        Department.code == department_data.code,
+        Department.institution_id == current_user.institution_id
+    ).first()
     if existing_code:
         raise HTTPException(status_code=400, detail="Department code already exists")
     
-    department = Department(**department_data.model_dump())
+    # Institution_id qo'shish
+    department_data_dict = department_data.model_dump()
+    department_data_dict['institution_id'] = current_user.institution_id
+    department = Department(**department_data_dict)
     db.add(department)
     db.commit()
     db.refresh(department)
@@ -64,7 +76,10 @@ async def update_department(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Yo'nalish ma'lumotlarini yangilash"""
-    department = db.query(Department).filter(Department.id == department_id).first()
+    department = db.query(Department).filter(
+        Department.id == department_id,
+        Department.institution_id == current_user.institution_id
+    ).first()
     if not department:
         raise HTTPException(status_code=404, detail="Department not found")
     
@@ -84,7 +99,10 @@ async def delete_department(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Yo'nalishni o'chirish"""
-    department = db.query(Department).filter(Department.id == department_id).first()
+    department = db.query(Department).filter(
+        Department.id == department_id,
+        Department.institution_id == current_user.institution_id
+    ).first()
     if not department:
         raise HTTPException(status_code=404, detail="Department not found")
     

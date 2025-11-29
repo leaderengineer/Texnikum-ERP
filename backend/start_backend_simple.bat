@@ -75,6 +75,21 @@ echo Server'ni to'xtatish uchun Ctrl+C bosing
 echo.
 
 python run.py
-
+if errorlevel 1 (
+    echo.
+    echo [XATOLIK] Server ishga tushirishda xatolik!
+    echo.
+    echo Mumkin bo'lgan sabablar:
+    echo 1. Port 8000 allaqachon ishlatilmoqda
+    echo 2. Dependencies to'liq o'rnatilmagan
+    echo 3. Database xatolik
+    echo 4. .env fayl xatolik
+    echo.
+    echo Yechim:
+    echo 1. Boshqa terminal'da ishlayotgan server'ni to'xtating
+    echo 2. Yoki port'ni o'zgartiring
+    echo 3. Dependencies'ni qayta o'rnating: pip install -r requirements.txt
+    echo.
+)
 pause
 

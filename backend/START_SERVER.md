@@ -1,70 +1,94 @@
 # Backend Server Ishga Tushirish
 
-## ✅ Dependencies O'rnatildi!
+## Muammo: Server ishlamayapti
 
-Barcha kerakli paketlar o'rnatildi. Endi server'ni ishga tushirishingiz mumkin.
+Agar server ishlamayapti, quyidagi qadamlarni bajaring:
 
-## Server Ishga Tushirish
-
-### Git Bash'da:
+## 1. Quick Start (Tavsiya etiladi)
 
 ```bash
-# 1. Backend papkasiga kiring
-cd /c/Users/HP/Desktop/ERP/backend
-
-# 2. Virtual environment aktivatsiya qiling
-source venv/Scripts/activate
-
-# 3. Server ishga tushiring
-python run.py
+cd backend
+quick_start.bat
 ```
 
-### Windows Command Prompt'da:
+Bu skript:
+- ✅ Virtual environment yaratadi/aktivatsiya qiladi
+- ✅ Dependencies o'rnatadi
+- ✅ Database'ni tekshiradi
+- ✅ Server'ni ishga tushiradi
 
-1. `backend` papkasida `start_backend_simple.bat` faylini ikki marta bosib oching
+## 2. Qo'lda Ishga Tushirish
 
-## Server URL
+```bash
+cd backend
+
+# Virtual environment aktivatsiya
+call venv\Scripts\activate.bat
+
+# Dependencies o'rnatish (agar kerak bo'lsa)
+pip install -r requirements.txt
+
+# Database tekshiruvi
+python check_database.py
+
+# Server ishga tushirish
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+## 3. Tekshirish
 
 Server ishga tushgandan keyin:
 
-- **API:** http://localhost:8000
-- **Swagger Docs:** http://localhost:8000/docs
-- **ReDoc:** http://localhost:8000/redoc
+1. Browser'da oching: `http://localhost:8000/docs`
+2. Yoki: `http://localhost:8000/health`
+3. Frontend'da login qilib ko'ring
 
-## Login Ma'lumotlari
+## 4. Database Ma'lumotlari
 
-Agar database initializatsiya qilinmagan bo'lsa:
+Database mavjud va ma'lumotlar saqlangan:
+- Talabalar: 8 ta
+- Yo'nalishlar: 3 ta
+- Dars jadvallari: 6 ta
+- Guruhlar: mavjud
 
+Database'ni ko'rish uchun:
 ```bash
-python init_db.py
+python check_database.py
 ```
 
-Keyin:
-
-- **Email:** `admin@example.com`
-- **Parol:** `admin123`
-
-## Server'ni To'xtatish
-
-Server'ni to'xtatish uchun terminal'da `Ctrl+C` bosing.
-
-## Xatoliklar
-
-### "ModuleNotFoundError: No module named 'uvicorn'"
-
-**Yechim:** Virtual environment aktivatsiya qilinmagan:
-
+Yoki batafsil:
 ```bash
-source venv/Scripts/activate  # Git Bash
+python view_database.py
 ```
 
-### "Address already in use"
+## 5. Muammo Hal Qilish
 
-**Yechim:** Port 8000 band. Yoki server allaqachon ishlayapti.
-
+### Port 8000 allaqachon ishlatilmoqda
 ```bash
-# Server'ni to'xtatish: Ctrl+C
-# Yoki boshqa port ishlatish
-uvicorn app.main:app --port 8001
+# Jarayonni topish
+netstat -ano | findstr :8000
+
+# Jarayonni to'xtatish (PID o'rniga jarayon ID)
+taskkill /PID <PID> /F
 ```
 
+### Dependencies o'rnatilmagan
+```bash
+call venv\Scripts\activate.bat
+pip install -r requirements.txt
+```
+
+### Database xatolik
+```bash
+python check_database.py
+python view_database.py
+```
+
+## 6. Server Status
+
+Server ishlayotganini tekshirish:
+```bash
+curl http://localhost:8000/health
+```
+
+Yoki browser'da: `http://localhost:8000/health`

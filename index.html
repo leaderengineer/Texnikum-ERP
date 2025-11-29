@@ -4,10 +4,52 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="google" content="notranslate" />
+    <meta name="format-detection" content="telephone=no" />
     <title>Texnikum ERP</title>
+    <style>
+      /* Google Password Manager ogohlantirishlarini o'chirish */
+      iframe[src*="accounts.google.com"], 
+      iframe[src*="password-manager"],
+      div[data-google-password-manager] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // Google Password Manager ogohlantirishlarini o'chirish
+      if (window.chrome && window.chrome.runtime) {
+        // Chrome extension'larini o'chirish
+        document.addEventListener('DOMContentLoaded', function() {
+          const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+              mutation.addedNodes.forEach(function(node) {
+                if (node.nodeType === 1) {
+                  // Google Password Manager modal'larini topish va o'chirish
+                  if (node.querySelector && (
+                    node.querySelector('[data-google-password-manager]') ||
+                    node.querySelector('iframe[src*="accounts.google.com"]') ||
+                    node.textContent && node.textContent.includes('Change your password')
+                  )) {
+                    node.style.display = 'none';
+                    node.remove();
+                  }
+                }
+              });
+            });
+          });
+          observer.observe(document.body, {
+            childList: true,
+            subtree: true
+          });
+        });
+      }
+    </script>
   </body>
 </html>

@@ -22,7 +22,9 @@ async def get_teachers(
     """Barcha o'qituvchilar ro'yxati"""
     from sqlalchemy.orm import joinedload
     
-    query = db.query(Teacher).options(joinedload(Teacher.user))
+    query = db.query(Teacher).options(joinedload(Teacher.user)).filter(
+        Teacher.institution_id == current_user.institution_id
+    )
     
     if department:
         query = query.filter(Teacher.department == department)
@@ -42,7 +44,10 @@ async def get_teacher(
     """O'qituvchi ma'lumotlari"""
     from sqlalchemy.orm import joinedload
     
-    teacher = db.query(Teacher).options(joinedload(Teacher.user)).filter(Teacher.id == teacher_id).first()
+    teacher = db.query(Teacher).options(joinedload(Teacher.user)).filter(
+        Teacher.id == teacher_id,
+        Teacher.institution_id == current_user.institution_id
+    ).first()
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher not found")
     return teacher
@@ -55,14 +60,20 @@ async def create_teacher(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Yangi o'qituvchi qo'shish"""
-    # Email tekshirish (User jadvalida)
+    # Email tekshirish (User jadvalida) - faqat joriy institution'da
     from app.models.user import User
-    existing_user = db.query(User).filter(User.email == teacher_data.email).first()
+    existing_user = db.query(User).filter(
+        User.email == teacher_data.email,
+        User.institution_id == current_user.institution_id
+    ).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already exists in users")
     
-    # Email tekshirish (Teacher jadvalida)
-    existing_teacher = db.query(Teacher).filter(Teacher.email == teacher_data.email).first()
+    # Email tekshirish (Teacher jadvalida) - faqat joriy institution'da
+    existing_teacher = db.query(Teacher).filter(
+        Teacher.email == teacher_data.email,
+        Teacher.institution_id == current_user.institution_id
+    ).first()
     if existing_teacher:
         raise HTTPException(status_code=400, detail="Email already exists")
     
@@ -83,6 +94,7 @@ async def create_teacher(
             hashed_password=hashed_password,
             role=UserRole.TEACHER,
             is_active=True,
+            institution_id=current_user.institution_id,
         )
         db.add(user)
         db.flush()
@@ -97,6 +109,7 @@ async def create_teacher(
         
         teacher = Teacher(
             user_id=user.id,
+            institution_id=current_user.institution_id,
             email=teacher_data.email,
             phone=teacher_data.phone,
             department=teacher_data.department,
@@ -125,7 +138,10 @@ async def update_teacher(
     """O'qituvchi ma'lumotlarini yangilash"""
     from sqlalchemy.orm import joinedload
     
-    teacher = db.query(Teacher).options(joinedload(Teacher.user)).filter(Teacher.id == teacher_id).first()
+    teacher = db.query(Teacher).options(joinedload(Teacher.user)).filter(
+        Teacher.id == teacher_id,
+        Teacher.institution_id == current_user.institution_id
+    ).first()
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher not found")
     
@@ -163,10 +179,11 @@ async def update_teacher(
         if 'last_name' in update_data:
             teacher.user.last_name = update_data['last_name']
         if 'email' in update_data:
-            # Email uniqueness tekshirish
+            # Email uniqueness tekshirish - faqat joriy institution'da
             existing_user = db.query(User).filter(
                 User.email == update_data['email'],
-                User.id != teacher.user.id
+                User.id != teacher.user.id,
+                User.institution_id == current_user.institution_id
             ).first()
             if existing_user:
                 raise HTTPException(status_code=400, detail="Email already exists in users")
@@ -185,7 +202,10 @@ async def delete_teacher(
     current_user: User = Depends(get_current_active_admin),
 ):
     """O'qituvchini o'chirish"""
-    teacher = db.query(Teacher).filter(Teacher.id == teacher_id).first()
+    teacher = db.query(Teacher).filter(
+        Teacher.id == teacher_id,
+        Teacher.institution_id == current_user.institution_id
+    ).first()
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher not found")
     

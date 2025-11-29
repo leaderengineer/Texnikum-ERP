@@ -20,7 +20,7 @@ async def get_schedules(
     current_user: User = Depends(get_current_user),
 ):
     """Barcha dars jadvallari"""
-    query = db.query(Schedule)
+    query = db.query(Schedule).filter(Schedule.institution_id == current_user.institution_id)
     
     if group:
         query = query.filter(Schedule.group == group)
@@ -38,7 +38,10 @@ async def get_schedule(
     current_user: User = Depends(get_current_user),
 ):
     """Dars jadvali ma'lumotlari"""
-    schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+    schedule = db.query(Schedule).filter(
+        Schedule.id == schedule_id,
+        Schedule.institution_id == current_user.institution_id
+    ).first()
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
     return schedule
@@ -51,7 +54,10 @@ async def get_schedules_by_group(
     current_user: User = Depends(get_current_user),
 ):
     """Guruh bo'yicha dars jadvallari"""
-    schedules = db.query(Schedule).filter(Schedule.group == group).all()
+    schedules = db.query(Schedule).filter(
+        Schedule.group == group,
+        Schedule.institution_id == current_user.institution_id
+    ).all()
     return schedules
 
 
@@ -62,7 +68,9 @@ async def create_schedule(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Yangi dars jadvali qo'shish"""
-    schedule = Schedule(**schedule_data.model_dump())
+    schedule_dict = schedule_data.model_dump()
+    schedule_dict['institution_id'] = current_user.institution_id
+    schedule = Schedule(**schedule_dict)
     db.add(schedule)
     db.commit()
     db.refresh(schedule)
@@ -77,7 +85,10 @@ async def update_schedule(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Dars jadvalini yangilash"""
-    schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+    schedule = db.query(Schedule).filter(
+        Schedule.id == schedule_id,
+        Schedule.institution_id == current_user.institution_id
+    ).first()
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
     
@@ -97,7 +108,10 @@ async def delete_schedule(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Dars jadvalini o'chirish"""
-    schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+    schedule = db.query(Schedule).filter(
+        Schedule.id == schedule_id,
+        Schedule.institution_id == current_user.institution_id
+    ).first()
     if not schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
     

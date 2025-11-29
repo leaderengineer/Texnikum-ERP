@@ -12,16 +12,15 @@ class AttendanceBase(BaseModel):
     subject: str
     date: date
     status: AttendanceStatus = AttendanceStatus.ABSENT
-    time: Optional[str] = None
 
 
 class AttendanceCreate(AttendanceBase):
-    pass
+    latitude: Optional[float] = None  # O'qituvchining joriy koordinatalari
+    longitude: Optional[float] = None  # O'qituvchining joriy koordinatalari
 
 
 class AttendanceUpdate(BaseModel):
     status: Optional[AttendanceStatus] = None
-    time: Optional[str] = None
 
 
 class AttendanceResponse(AttendanceBase):

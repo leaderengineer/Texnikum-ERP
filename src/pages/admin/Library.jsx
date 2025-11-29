@@ -33,6 +33,7 @@ import { Select } from '../../components/ui/Select';
 import { BookModal } from '../../components/modals/BookModal';
 import { BookAddModal } from '../../components/modals/BookAddModal';
 import { libraryAPI } from '../../services/api';
+import useAuthStore from '../../store/authStore';
 
 const categories = [
   'Barcha',
@@ -50,6 +51,9 @@ const viewModes = {
 };
 
 export function Library() {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
+  
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -335,10 +339,12 @@ export function Library() {
             Kitoblar bazasi, elektron o'qish va boshqaruv
           </p>
         </div>
-        <Button onClick={handleAdd} className="w-full sm:w-auto touch-manipulation">
-          <Plus className="mr-2 h-4 w-4" />
-          Kitob qo'shish
-        </Button>
+        {isAdmin && (
+          <Button onClick={handleAdd} className="w-full sm:w-auto touch-manipulation">
+            <Plus className="mr-2 h-4 w-4" />
+            Kitob qo'shish
+          </Button>
+        )}
       </div>
 
       {/* Statistics */}
@@ -573,26 +579,28 @@ export function Library() {
                   </div>
 
                   {/* Admin Actions */}
-                  <div className="flex gap-2 pt-2 border-t">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleEdit(book)}
-                    >
-                      <Edit className="h-3.5 w-3.5 mr-1" />
-                      Tahrirlash
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="flex-1 text-destructive hover:text-destructive"
-                      onClick={() => handleDeleteBook(book.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1" />
-                      O'chirish
-                    </Button>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex gap-2 pt-2 border-t">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => handleEdit(book)}
+                      >
+                        <Edit className="h-3.5 w-3.5 mr-1" />
+                        Tahrirlash
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="flex-1 text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteBook(book.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        O'chirish
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -672,12 +680,16 @@ export function Library() {
                           <BookMarked className="h-3.5 w-3.5 mr-1" />
                           Band qilish
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleEdit(book)}>
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteBook(book.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {isAdmin && (
+                          <>
+                            <Button variant="ghost" size="sm" onClick={() => handleEdit(book)}>
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDeleteBook(book.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -1,0 +1,102 @@
+@echo off
+chcp 65001 >nul
+echo ========================================
+echo Texnikum ERP Backend - Quick Start
+echo ========================================
+echo.
+
+REM Joriy papkaga o'tish
+cd /d "%~dp0"
+
+REM Python tekshiruvi
+python --version >nul 2>&1
+if errorlevel 1 (
+    echo [XATOLIK] Python topilmadi!
+    pause
+    exit /b 1
+)
+
+echo [1/4] Python tekshirildi
+python --version
+echo.
+
+REM Virtual environment yaratish/yangilash
+if not exist "venv" (
+    echo [2/4] Virtual environment yaratilmoqda...
+    python -m venv venv
+    if errorlevel 1 (
+        echo [XATOLIK] Virtual environment yaratishda xatolik!
+        pause
+        exit /b 1
+    )
+    echo [OK] Virtual environment yaratildi
+) else (
+    echo [2/4] Virtual environment mavjud
+)
+
+REM Virtual environment aktivatsiya
+echo [3/4] Virtual environment aktivatsiya qilinmoqda...
+call venv\Scripts\activate.bat
+if errorlevel 1 (
+    echo [XATOLIK] Virtual environment aktivatsiya qilishda xatolik!
+    pause
+    exit /b 1
+)
+echo [OK] Virtual environment aktivatsiya qilindi
+echo.
+
+REM Dependencies o'rnatish
+echo [4/4] Dependencies o'rnatilmoqda (bu biroz vaqt olishi mumkin)...
+python -m pip install --upgrade pip --quiet
+python -m pip install -r requirements.txt
+if errorlevel 1 (
+    echo [XATOLIK] Dependencies o'rnatishda xatolik!
+    pause
+    exit /b 1
+)
+echo [OK] Dependencies o'rnatildi
+echo.
+
+REM Port tekshiruvi
+netstat -ano | findstr :8000 >nul 2>&1
+if not errorlevel 1 (
+    echo [WARNING] Port 8000 allaqachon ishlatilmoqda!
+    echo.
+    set /p continue="Davom etishni xohlaysizmi? (y/n): "
+    if /i not "%continue%"=="y" (
+        exit /b 1
+    )
+)
+echo.
+
+REM Database tekshiruvi
+echo.
+echo [INFO] Database tekshirilmoqda...
+python check_database.py
+echo.
+
+REM Server ishga tushirish
+echo ========================================
+echo [INFO] Backend server ishga tushmoqda...
+echo [INFO] Server: http://localhost:8000
+echo [INFO] API Docs: http://localhost:8000/docs
+echo [INFO] Health: http://localhost:8000/health
+echo ========================================
+echo.
+echo Server'ni to'xtatish uchun Ctrl+C bosing
+echo.
+
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+if errorlevel 1 (
+    echo.
+    echo [XATOLIK] Server xatolik bilan yopildi!
+    echo.
+    echo Yechim:
+    echo 1. Dependencies o'rnating: pip install -r requirements.txt
+    echo 2. Python kodini tekshiring: python test_server.py
+    echo.
+)
+
+pause
+

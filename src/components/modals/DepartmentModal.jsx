@@ -1,13 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { X, Building2, GraduationCap, Users, TrendingUp } from 'lucide-react';
+import { X, Building2, GraduationCap, Users, TrendingUp, Loader2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
 import { Select } from '../ui/Select';
-import { departmentsAPI } from '../../services/api';
+import { departmentsAPI, teachersAPI } from '../../services/api';
 
 const departmentSchema = z.object({
   name: z.string().min(2, 'Nomi kamida 2 ta belgi bo\'lishi kerak'),
@@ -19,6 +19,9 @@ const departmentSchema = z.object({
 });
 
 export function DepartmentModal({ department, onClose }) {
+  const [teachers, setTeachers] = useState([]);
+  const [loadingTeachers, setLoadingTeachers] = useState(true);
+  
   const {
     register,
     handleSubmit,
@@ -35,6 +38,52 @@ export function DepartmentModal({ department, onClose }) {
       status: 'active',
     },
   });
+
+  // O'qituvchilarni yuklash
+  useEffect(() => {
+    const loadTeachers = async () => {
+      try {
+        setLoadingTeachers(true);
+        
+        // Backend limit maksimal 100, shuning uchun bir necha marta yuklash kerak
+        let allTeachersData = [];
+        let fetchSkip = 0;
+        const limit = 100; // Backend maksimal limit
+        let hasMore = true;
+        
+        while (hasMore) {
+          const response = await teachersAPI.getAll({ skip: fetchSkip, limit });
+          const teachersData = Array.isArray(response.data) ? response.data : [];
+          allTeachersData = [...allTeachersData, ...teachersData];
+          
+          // Agar kamroq ma'lumot qaytsa, keyingi sahifa yo'q
+          if (teachersData.length < limit) {
+            hasMore = false;
+          } else {
+            fetchSkip += limit;
+          }
+        }
+        
+        // O'qituvchilarni formatlash
+        const formattedTeachers = allTeachersData.map((teacher) => ({
+          id: teacher.id,
+          name: `${teacher.first_name || ''} ${teacher.last_name || ''}`.trim(),
+          email: teacher.email || '',
+        })).filter(teacher => teacher.name); // Bo'sh ismlarni olib tashlash
+        
+        // Ism bo'yicha tartiblash
+        formattedTeachers.sort((a, b) => a.name.localeCompare(b.name));
+        setTeachers(formattedTeachers);
+      } catch (error) {
+        console.error('O\'qituvchilarni yuklashda xatolik:', error);
+        setTeachers([]);
+      } finally {
+        setLoadingTeachers(false);
+      }
+    };
+
+    loadTeachers();
+  }, []);
 
   useEffect(() => {
     if (department) {
@@ -122,7 +171,21 @@ export function DepartmentModal({ department, onClose }) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="head">Rahbar *</Label>
-              <Input id="head" {...register('head')} placeholder="Prof. Ism Familiya" />
+              {loadingTeachers ? (
+                <div className="flex items-center justify-center h-10 border rounded-md bg-muted">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground mr-2" />
+                  <span className="text-sm text-muted-foreground">O'qituvchilar yuklanmoqda...</span>
+                </div>
+              ) : (
+                <Select id="head" {...register('head')}>
+                  <option value="">Tanlang...</option>
+                  {teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.name}>
+                      {teacher.name}
+                    </option>
+                  ))}
+                </Select>
+              )}
               {errors.head && (
                 <p className="text-sm text-destructive">{errors.head.message}</p>
               )}

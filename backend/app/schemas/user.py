@@ -9,7 +9,9 @@ class UserBase(BaseModel):
     username: Optional[str] = None
     first_name: str
     last_name: str
+    avatar_url: Optional[str] = None
     role: UserRole = UserRole.TEACHER
+    institution_id: int
 
 
 class UserCreate(UserBase):
@@ -35,6 +37,12 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+
+class UserUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    avatar_url: Optional[str] = None
 
 
 class LoginRequest(BaseModel):

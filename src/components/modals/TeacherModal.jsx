@@ -95,15 +95,18 @@ export function TeacherModal({ teacher, onClose }) {
         normalizedStatus = (statusStr === 'active') ? 'active' : 'inactive';
       }
       
-      // Backend API formatiga o'tkazish - status har doim yuborilishi kerak
+      // Backend API formatiga o'tkazish
+      // phone bo'sh bo'lsa, null yuborish (backend Optional[str] = None kutmoqda)
       const payload = {
-        first_name: data.firstName,
-        last_name: data.lastName,
-        email: data.email,
-        phone: data.phone || '',
-        department: data.department,
-        status: normalizedStatus, // Status har doim yuborilishi kerak
+        first_name: data.firstName.trim(),
+        last_name: data.lastName.trim(),
+        email: data.email.trim(),
+        phone: data.phone?.trim() || null, // Bo'sh bo'lsa null yuborish
+        department: data.department.trim(),
+        status: normalizedStatus,
       };
+
+      console.log('Payload:', payload);
 
       if (teacher) {
         await teachersAPI.update(teacher.id, payload);
@@ -118,6 +121,8 @@ export function TeacherModal({ teacher, onClose }) {
       }
     } catch (error) {
       console.error('Saqlashda xatolik:', error);
+      console.error('Error response:', error.response?.data);
+      
       // Xatolikni to'g'ri ko'rsatish
       let errorMessage = 'Saqlashda xatolik yuz berdi';
       

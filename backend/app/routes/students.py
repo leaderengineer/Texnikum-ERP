@@ -5,11 +5,11 @@ from sqlalchemy import func
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from app.database import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.student import Student
 from app.schemas.student import StudentCreate, StudentUpdate, StudentResponse
 from app.schemas.pagination import PaginatedResponse, PaginationMeta
-from app.auth import get_current_user, get_current_active_admin
+from app.auth import get_current_user, get_current_active_admin, get_password_hash
 from app.config import settings
 
 router = APIRouter()
@@ -21,7 +21,7 @@ limiter = Limiter(key_func=get_remote_address)
 async def get_students(
     request: Request,
     page: int = Query(1, ge=1, description="Sahifa raqami"),
-    limit: int = Query(20, ge=1, le=100, description="Har bir sahifadagi elementlar soni"),
+    limit: int = Query(20, ge=1, le=1000, description="Har bir sahifadagi elementlar soni"),
     group: Optional[str] = None,
     department: Optional[str] = None,
     status: Optional[str] = None,
@@ -30,8 +30,8 @@ async def get_students(
     current_user: User = Depends(get_current_user),
 ):
     """Barcha talabalar ro'yxati (pagination bilan)"""
-    # Base query
-    query = db.query(Student)
+    # Base query - faqat joriy institution'ning talabalari
+    query = db.query(Student).filter(Student.institution_id == current_user.institution_id)
     
     # Filterlar
     if group:
@@ -71,7 +71,10 @@ async def get_student(
     current_user: User = Depends(get_current_user),
 ):
     """Talaba ma'lumotlari"""
-    student = db.query(Student).filter(Student.id == student_id).first()
+    student = db.query(Student).filter(
+        Student.id == student_id,
+        Student.institution_id == current_user.institution_id
+    ).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     return student
@@ -84,7 +87,10 @@ async def get_students_by_group(
     current_user: User = Depends(get_current_user),
 ):
     """Guruh bo'yicha talabalar"""
-    students = db.query(Student).filter(Student.group == group).all()
+    students = db.query(Student).filter(
+        Student.group == group,
+        Student.institution_id == current_user.institution_id
+    ).all()
     return students
 
 
@@ -97,19 +103,60 @@ async def create_student(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Yangi talaba qo'shish"""
-    # Email va student_id tekshirish
-    existing_email = db.query(Student).filter(Student.email == student_data.email).first()
+    # Email va student_id tekshirish (faqat joriy institution'da)
+    existing_email = db.query(Student).filter(
+        Student.email == student_data.email,
+        Student.institution_id == current_user.institution_id
+    ).first()
     if existing_email:
         raise HTTPException(status_code=400, detail="Email already exists")
     
-    existing_id = db.query(Student).filter(Student.student_id == student_data.student_id).first()
+    existing_id = db.query(Student).filter(
+        Student.student_id == student_data.student_id,
+        Student.institution_id == current_user.institution_id
+    ).first()
     if existing_id:
         raise HTTPException(status_code=400, detail="Student ID already exists")
     
-    student = Student(**student_data.model_dump())
+    # Institution_id qo'shish
+    student_data_dict = student_data.model_dump()
+    student_data_dict['institution_id'] = current_user.institution_id
+    student = Student(**student_data_dict)
     db.add(student)
     db.commit()
     db.refresh(student)
+
+    # Talaba uchun tizimga kirish akkaunti yaratish (User jadvalida)
+    # Default login: email, parol sifatida talaba ID (student_id) ishlatiladi
+    existing_user = db.query(User).filter(
+        User.email == student.email,
+        User.institution_id == current_user.institution_id
+    ).first()
+
+    try:
+        default_password = student.student_id
+        if existing_user:
+            # Agar user allaqachon mavjud bo'lsa, rolini student qilib yangilaymiz
+            existing_user.first_name = student.first_name
+            existing_user.last_name = student.last_name
+            existing_user.role = UserRole.STUDENT
+            # Parolni o'zgartirmaymiz, mavjud bo'lib qoladi
+        else:
+            new_user = User(
+                email=student.email,
+                username=student.student_id,
+                first_name=student.first_name,
+                last_name=student.last_name,
+                role=UserRole.STUDENT,
+                institution_id=current_user.institution_id,
+                hashed_password=get_password_hash(default_password),
+            )
+            db.add(new_user)
+        db.commit()
+    except Exception:
+        # Agar user yaratishda xatolik bo'lsa, talabani baribir qaytaramiz
+        db.rollback()
+
     return student
 
 
@@ -121,7 +168,10 @@ async def update_student(
     current_user: User = Depends(get_current_active_admin),
 ):
     """Talaba ma'lumotlarini yangilash"""
-    student = db.query(Student).filter(Student.id == student_id).first()
+    student = db.query(Student).filter(
+        Student.id == student_id,
+        Student.institution_id == current_user.institution_id
+    ).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
@@ -143,12 +193,18 @@ async def delete_student(
     """Talabani o'chirish"""
     from app.models.attendance import Attendance
     
-    student = db.query(Student).filter(Student.id == student_id).first()
+    student = db.query(Student).filter(
+        Student.id == student_id,
+        Student.institution_id == current_user.institution_id
+    ).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
     # Talabaga bog'liq attendance yozuvlarini o'chirish
-    attendance_records = db.query(Attendance).filter(Attendance.student_id == student_id).all()
+    attendance_records = db.query(Attendance).filter(
+        Attendance.student_id == student_id,
+        Attendance.institution_id == current_user.institution_id
+    ).all()
     for attendance in attendance_records:
         db.delete(attendance)
     
