@@ -26,12 +26,22 @@ apiClient.interceptors.request.use(
 );
 
 // Response interceptor - xatolarni boshqarish
+let isRedirecting = false;
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      useAuthStore.getState().logout();
-      window.location.href = '/login';
+      const authStore = useAuthStore.getState();
+      // Faqat bir marta logout qilish va redirect qilish
+      if (!isRedirecting && authStore.token) {
+        isRedirecting = true;
+        authStore.logout();
+        // Login sahifasiga yo'naltirish
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+      }
     }
     return Promise.reject(error);
   }
@@ -174,6 +184,15 @@ export const lessonMaterialsAPI = {
     const baseURL = apiClient.defaults.baseURL;
     return `${baseURL}/lesson-materials/${id}/view?token=${token}`;
   },
+};
+
+// Subjects (Fanlar)
+export const subjectsAPI = {
+  getAll: (params) => apiClient.get('/subjects', { params }),
+  getById: (id) => apiClient.get(`/subjects/${id}`),
+  create: (data) => apiClient.post('/subjects', data),
+  update: (id, data) => apiClient.put(`/subjects/${id}`, data),
+  delete: (id) => apiClient.delete(`/subjects/${id}`),
 };
 
 // Upload

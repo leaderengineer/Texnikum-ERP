@@ -29,6 +29,9 @@ from app.utils.sms import (
 from app.utils.email import (
     send_password_reset_email,
 )
+from app.models.audit_log import ActionType
+from app.utils.audit_log import create_audit_log
+from fastapi import Request
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -37,7 +40,8 @@ router = APIRouter()
 @router.post("/login", response_model=Token)
 async def login(
     credentials: LoginRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    request: Request = None,
 ):
     """Login endpoint - email va institution_id bo'yicha qidirish"""
     try:
@@ -81,6 +85,17 @@ async def login(
     )
     refresh_token = create_refresh_token(data={"sub": user.email, "institution_id": user.institution_id})
     
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=user,
+        action=ActionType.LOGIN,
+        resource_type="user",
+        resource_id=user.id,
+        description=f"Tizimga kirildi: {user.email} ({user.role.value})",
+        request=request,
+    )
+    
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -90,8 +105,23 @@ async def login(
 
 
 @router.post("/logout")
-async def logout(current_user: User = Depends(get_current_user)):
+async def logout(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    request: Request = None,
+):
     """Logout endpoint"""
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.LOGOUT,
+        resource_type="user",
+        resource_id=current_user.id,
+        description=f"Tizimdan chiqildi: {current_user.email}",
+        request=request,
+    )
+    
     return {"message": "Successfully logged out"}
 
 

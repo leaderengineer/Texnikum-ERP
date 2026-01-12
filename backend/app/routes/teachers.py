@@ -1,11 +1,13 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.models.teacher import Teacher
 from app.schemas.teacher import TeacherCreate, TeacherUpdate, TeacherResponse
 from app.auth import get_current_user, get_current_active_admin
+from app.models.audit_log import ActionType
+from app.utils.audit_log import create_audit_log
 
 router = APIRouter()
 
@@ -18,6 +20,7 @@ async def get_teachers(
     status: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Barcha o'qituvchilar ro'yxati"""
     from sqlalchemy.orm import joinedload
@@ -32,6 +35,17 @@ async def get_teachers(
         query = query.filter(Teacher.status == status)
     
     teachers = query.offset(skip).limit(limit).all()
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.VIEW,
+        resource_type="teacher",
+        description=f"O'qituvchilar ro'yxatini ko'rdi (limit: {limit}, skip: {skip})",
+        request=request,
+    )
+    
     return teachers
 
 
@@ -40,6 +54,7 @@ async def get_teacher(
     teacher_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """O'qituvchi ma'lumotlari"""
     from sqlalchemy.orm import joinedload
@@ -50,6 +65,18 @@ async def get_teacher(
     ).first()
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher not found")
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.VIEW,
+        resource_type="teacher",
+        resource_id=teacher_id,
+        description=f"O'qituvchi ma'lumotlarini ko'rdi: {teacher.email}",
+        request=request,
+    )
+    
     return teacher
 
 
@@ -58,6 +85,7 @@ async def create_teacher(
     teacher_data: TeacherCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """Yangi o'qituvchi qo'shish"""
     # Email tekshirish (User jadvalida) - faqat joriy institution'da
@@ -122,6 +150,17 @@ async def create_teacher(
         # User relationship'ni yuklash
         db.refresh(teacher, ["user"])
         
+        # Audit log
+        create_audit_log(
+            db=db,
+            user=current_user,
+            action=ActionType.CREATE,
+            resource_type="teacher",
+            resource_id=teacher.id,
+            description=f"Yangi o'qituvchi qo'shildi: {teacher.email} ({teacher.first_name} {teacher.last_name})",
+            request=request,
+        )
+        
         return teacher
     except Exception as e:
         db.rollback()
@@ -134,6 +173,7 @@ async def update_teacher(
     teacher_data: TeacherUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """O'qituvchi ma'lumotlarini yangilash"""
     from sqlalchemy.orm import joinedload
@@ -192,6 +232,19 @@ async def update_teacher(
     db.commit()
     db.refresh(teacher)
     db.refresh(teacher, ["user"])
+    
+    # Audit log
+    update_fields = list(update_data.keys())
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.UPDATE,
+        resource_type="teacher",
+        resource_id=teacher_id,
+        description=f"O'qituvchi ma'lumotlari yangilandi: {teacher.email} (o'zgartirilgan maydonlar: {', '.join(update_fields)})",
+        request=request,
+    )
+    
     return teacher
 
 
@@ -200,6 +253,7 @@ async def delete_teacher(
     teacher_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """O'qituvchini o'chirish"""
     teacher = db.query(Teacher).filter(
@@ -209,7 +263,21 @@ async def delete_teacher(
     if not teacher:
         raise HTTPException(status_code=404, detail="Teacher not found")
     
+    teacher_email = teacher.email
+    
     db.delete(teacher)
     db.commit()
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.DELETE,
+        resource_type="teacher",
+        resource_id=teacher_id,
+        description=f"O'qituvchi o'chirildi: {teacher_email}",
+        request=request,
+    )
+    
     return {"message": "Teacher deleted successfully"}
 

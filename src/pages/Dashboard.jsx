@@ -30,10 +30,12 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { dashboardAPI } from '../services/api';
+import useAuthStore from '../store/authStore';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export function Dashboard() {
+  const { token, isAuthenticated } = useAuthStore();
   const [stats, setStats] = useState({
     totalStudents: 0,
     totalTeachers: 0,
@@ -44,10 +46,21 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    // Token mavjud bo'lsa, ma'lumotlarni yuklash
+    if (token && isAuthenticated) {
+      loadDashboardData();
+    } else {
+      setLoading(false);
+    }
+  }, [token, isAuthenticated]);
 
   const loadDashboardData = async () => {
+    // Token yo'q bo'lsa, so'rov yubormaslik
+    if (!token || !isAuthenticated) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const [statsResponse, attendanceResponse, studentsResponse, booksResponse] = await Promise.all([

@@ -31,7 +31,7 @@ import {
   CardTitle,
 } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
-import { lessonMaterialsAPI, departmentsAPI, groupsAPI } from '../../services/api';
+import { lessonMaterialsAPI, departmentsAPI, groupsAPI, subjectsAPI } from '../../services/api';
 import useAuthStore from '../../store/authStore';
 import { Pagination } from '../../components/ui/Pagination';
 
@@ -92,6 +92,7 @@ export function LessonMaterials() {
   
   // Upload form state
   const [uploadForm, setUploadForm] = useState({
+    subject: '',
     group: '',
     department: '',
     title: '',
@@ -124,36 +125,43 @@ export function LessonMaterials() {
   const loadSubjects = async () => {
     try {
       setSubjectsLoading(true);
-      const response = await lessonMaterialsAPI.getAll({ limit: 1000 });
-      const allMaterials = response.data || [];
       
-      // Fanlarni yig'ish (unique) va har bir fan uchun materiallar sonini hisoblash
-      const subjectMap = new Map();
+      // Subjects API'dan fanlarni olish
+      const subjectsResponse = await subjectsAPI.getAll();
+      const subjectsFromAPI = subjectsResponse.data || [];
+      
+      // Lesson materials'dan har bir fan uchun materiallar sonini hisoblash
+      const materialsResponse = await lessonMaterialsAPI.getAll({ limit: 1000 });
+      const allMaterials = materialsResponse.data || [];
+      
+      // Materiallar sonini hisoblash
+      const materialCountMap = new Map();
+      const departmentMap = new Map();
+      
       allMaterials.forEach((material) => {
-        const subject = material.subject;
-        if (subject) {
-          if (!subjectMap.has(subject)) {
-            subjectMap.set(subject, {
-              name: subject,
-              count: 0,
-              departments: new Set(),
-            });
-          }
-          const subjectData = subjectMap.get(subject);
-          subjectData.count++;
+        const subjectName = material.subject;
+        if (subjectName) {
+          // Materiallar sonini hisoblash
+          materialCountMap.set(subjectName, (materialCountMap.get(subjectName) || 0) + 1);
+          
+          // Department'larni yig'ish
           if (material.department) {
-            subjectData.departments.add(material.department);
+            if (!departmentMap.has(subjectName)) {
+              departmentMap.set(subjectName, new Set());
+            }
+            departmentMap.get(subjectName).add(material.department);
           }
         }
       });
       
-      // Map'dan array'ga o'tkazish va tartiblash
-      const subjectsList = Array.from(subjectMap.entries()).map(([name, data]) => ({
-        name,
-        count: data.count,
-        departments: Array.from(data.departments),
+      // Subjects API'dan olingan fanlar bilan materiallar ma'lumotlarini birlashtirish
+      const subjectsList = subjectsFromAPI.map((subject) => ({
+        name: subject.name,
+        count: materialCountMap.get(subject.name) || 0,
+        departments: Array.from(departmentMap.get(subject.name) || []),
       }));
       
+      // Tartiblash
       subjectsList.sort((a, b) => a.name.localeCompare(b.name));
       setSubjects(subjectsList);
     } catch (error) {
@@ -260,19 +268,20 @@ export function LessonMaterials() {
       setAddingSubject(true);
       setUploadError('');
 
-      // Frontend'da yangi fan qo'shish
-      const newSubject = {
+      // Backend'ga yangi fan qo'shish
+      const response = await subjectsAPI.create({
         name: newSubjectName.trim(),
-        count: 0,
-        departments: [],
-      };
+      });
+
+      // Muvaffaqiyatli qo'shilgandan keyin fanlarni qayta yuklash
+      await loadSubjects();
       
-      setSubjects(prev => [...prev, newSubject].sort((a, b) => a.name.localeCompare(b.name)));
       setNewSubjectName('');
       setIsAddSubjectModalOpen(false);
     } catch (error) {
       console.error('Fan qo\'shishda xatolik:', error);
-      setUploadError('Fan qo\'shishda xatolik yuz berdi');
+      const errorMessage = error.response?.data?.detail || error.message || 'Fan qo\'shishda xatolik yuz berdi';
+      setUploadError(errorMessage);
     } finally {
       setAddingSubject(false);
     }
@@ -286,7 +295,7 @@ export function LessonMaterials() {
       return;
     }
 
-    if (!selectedSubject || !uploadForm.group || !uploadForm.department || !uploadForm.title) {
+    if (!uploadForm.subject || !uploadForm.group || !uploadForm.department || !uploadForm.title) {
       setUploadError('Barcha majburiy maydonlar to\'ldirilishi kerak');
       return;
     }
@@ -297,7 +306,7 @@ export function LessonMaterials() {
 
       const formData = new FormData();
       formData.append('file', uploadForm.file);
-      formData.append('subject', selectedSubject.name); // Tanlangan fan nomi
+      formData.append('subject', uploadForm.subject); // Form'dan olingan fan nomi
       formData.append('group', uploadForm.group);
       formData.append('department', uploadForm.department);
       formData.append('title', uploadForm.title);
@@ -309,6 +318,7 @@ export function LessonMaterials() {
       
       // Formani tozalash
       setUploadForm({
+        subject: '',
         group: '',
         department: '',
         title: '',
@@ -591,7 +601,7 @@ export function LessonMaterials() {
               : 'Dars materiallarini yuklash, ko\'rish va yuklab olish'}
           </p>
         </div>
-        {currentView === 'subjects' && (isAdmin || user?.role === 'teacher') && (
+        {currentView === 'subjects' && isAdmin && (
           <Button 
             onClick={() => setIsAddSubjectModalOpen(true)} 
             className="w-full sm:w-auto touch-manipulation"
@@ -603,7 +613,13 @@ export function LessonMaterials() {
         {currentView === 'materials' && (isAdmin || user?.role === 'teacher') && (
           <div className="flex flex-col sm:flex-row gap-2">
             <Button 
-              onClick={() => setIsUploadModalOpen(true)} 
+              onClick={() => {
+                setIsUploadModalOpen(true);
+                // Modal ochilganda selectedSubject ni uploadForm ga o'rnatish
+                if (selectedSubject) {
+                  setUploadForm(prev => ({ ...prev, subject: selectedSubject.name }));
+                }
+              }} 
               className="w-full sm:w-auto touch-manipulation"
             >
               <Upload className="mr-2 h-4 w-4" />
@@ -739,55 +755,70 @@ export function LessonMaterials() {
         <>
           {/* Filters - faqat materials view'da */}
           <Card>
-            <CardContent className="pt-6 space-y-4">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Material nomi yoki fayl nomi bo'yicha qidirish..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+            <CardContent className="pt-6">
+              {/* Search and Filters - bir qatorda */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                {/* Qidiruv input - kattalashtirildi */}
+                <div className="relative flex-1 min-w-0">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Material nomi yoki fayl nomi bo'yicha qidirish..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
 
-              {/* Filters */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t">
-                <div className="space-y-2">
-                  <Label htmlFor="filter-department" className="text-sm">Yo'nalish</Label>
-                  <Select
-                    id="filter-department"
-                    value={selectedDepartment}
-                    onChange={(e) => {
-                      setSelectedDepartment(e.target.value);
+                {/* Filters */}
+                <Select
+                  id="filter-department"
+                  value={selectedDepartment}
+                  onChange={(e) => {
+                    setSelectedDepartment(e.target.value);
+                    setSelectedGroup('');
+                  }}
+                  className="w-full sm:w-[180px]"
+                >
+                  <option value="">Barcha yo'nalishlar</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.name}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </Select>
+
+                <Select
+                  id="filter-group"
+                  value={selectedGroup}
+                  onChange={(e) => setSelectedGroup(e.target.value)}
+                  disabled={!selectedDepartment}
+                  className="w-full sm:w-[180px]"
+                >
+                  <option value="">Barcha guruhlar</option>
+                  {groups.map((group) => (
+                    <option key={group.id} value={group.name || group.code}>
+                      {group.name || group.code}
+                    </option>
+                  ))}
+                </Select>
+
+                {/* Filter reset button */}
+                {(selectedDepartment || selectedGroup || searchTerm) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedDepartment('');
                       setSelectedGroup('');
+                      setSearchTerm('');
+                      setCurrentPage(1);
                     }}
+                    className="w-full sm:w-auto shrink-0"
                   >
-                    <option value="">Barcha yo'nalishlar</option>
-                    {departments.map((dept) => (
-                      <option key={dept.id} value={dept.name}>
-                        {dept.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="filter-group" className="text-sm">Guruh</Label>
-                  <Select
-                    id="filter-group"
-                    value={selectedGroup}
-                    onChange={(e) => setSelectedGroup(e.target.value)}
-                    disabled={!selectedDepartment}
-                  >
-                    <option value="">Barcha guruhlar</option>
-                    {groups.map((group) => (
-                      <option key={group.id} value={group.name || group.code}>
-                        {group.name || group.code}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
+                    <X className="h-4 w-4 mr-2" />
+                    Tozalash ({activeFiltersCount})
+                  </Button>
+                )}
               </div>
 
           {/* Filter reset va statistika */}
@@ -822,20 +853,6 @@ export function LessonMaterials() {
                     </Badge>
                   )}
                 </div>
-              )}
-              {(selectedDepartment || selectedGroup) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedDepartment('');
-                    setSelectedGroup('');
-                    setCurrentPage(1);
-                  }}
-                >
-                  <X className="h-4 w-4 mr-2" />
-                  Tozalash ({activeFiltersCount})
-                </Button>
               )}
               {/* View Mode Toggle Buttons */}
               <div className="flex items-center gap-1 border rounded-lg p-1 bg-muted">
@@ -1210,7 +1227,18 @@ export function LessonMaterials() {
                 </div>
                 <h2 className="text-lg sm:text-xl font-semibold">Material yuklash</h2>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setIsUploadModalOpen(false)}>
+              <Button variant="ghost" size="icon" onClick={() => {
+                setIsUploadModalOpen(false);
+                setUploadForm({
+                  subject: selectedSubject?.name || '',
+                  group: '',
+                  department: '',
+                  title: '',
+                  description: '',
+                  file: null,
+                });
+                setUploadError('');
+              }}>
                 <span className="text-xl">×</span>
               </Button>
             </div>

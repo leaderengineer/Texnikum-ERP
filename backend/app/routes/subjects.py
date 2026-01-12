@@ -1,11 +1,13 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.models.subject import Subject
 from app.schemas.subject import SubjectCreate, SubjectUpdate, SubjectResponse
 from app.auth import get_current_user, get_current_active_admin
+from app.models.audit_log import ActionType
+from app.utils.audit_log import create_audit_log
 
 router = APIRouter()
 
@@ -44,6 +46,7 @@ async def create_subject(
     subject_data: SubjectCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """Yangi fan qo'shish"""
     # Name tekshirish (faqat joriy institution'da)
@@ -61,6 +64,18 @@ async def create_subject(
     db.add(subject)
     db.commit()
     db.refresh(subject)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.CREATE,
+        resource_type="subject",
+        resource_id=subject.id,
+        description=f"Yangi fan qo'shildi: {subject.name}",
+        request=request,
+    )
+    
     return subject
 
 
@@ -70,6 +85,7 @@ async def update_subject(
     subject_data: SubjectUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """Fan ma'lumotlarini yangilash"""
     subject = db.query(Subject).filter(
@@ -91,11 +107,25 @@ async def update_subject(
             raise HTTPException(status_code=400, detail="Subject name already exists")
     
     update_data = subject_data.model_dump(exclude_unset=True)
+    update_fields = list(update_data.keys())
+    
     for field, value in update_data.items():
         setattr(subject, field, value)
     
     db.commit()
     db.refresh(subject)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.UPDATE,
+        resource_type="subject",
+        resource_id=subject_id,
+        description=f"Fan ma'lumotlari yangilandi: {subject.name} (o'zgartirilgan maydonlar: {', '.join(update_fields)})",
+        request=request,
+    )
+    
     return subject
 
 
@@ -104,6 +134,7 @@ async def delete_subject(
     subject_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """Fanni o'chirish (soft delete - is_active = False)"""
     subject = db.query(Subject).filter(
@@ -114,8 +145,22 @@ async def delete_subject(
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
     
+    subject_name = subject.name
+    
     # Soft delete - faqat is_active ni False qilamiz
     subject.is_active = False
     db.commit()
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.DELETE,
+        resource_type="subject",
+        resource_id=subject_id,
+        description=f"Fan o'chirildi: {subject_name}",
+        request=request,
+    )
+    
     return {"message": "Subject deleted successfully"}
 

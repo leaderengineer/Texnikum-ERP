@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.routes import auth, institutions, teachers, students, groups, departments, schedules, attendance, grades, books, dashboard, audit, lesson_materials, upload, exams
+from app.routes import auth, institutions, teachers, students, groups, departments, schedules, attendance, grades, books, dashboard, audit, lesson_materials, upload, exams, subjects
 
 api_router = APIRouter()
 
@@ -18,4 +18,5 @@ api_router.include_router(audit.router, prefix="/audit-logs", tags=["Audit Logs"
 api_router.include_router(lesson_materials.router, prefix="/lesson-materials", tags=["Lesson Materials"])
 api_router.include_router(upload.router, prefix="/upload", tags=["Upload"])
 api_router.include_router(exams.router, prefix="/exams", tags=["Exams"])
+api_router.include_router(subjects.router, prefix="/subjects", tags=["Subjects"])
 

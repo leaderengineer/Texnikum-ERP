@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 import os
@@ -8,6 +8,8 @@ from app.database import get_db
 from app.models.user import User
 from app.auth import get_current_user
 from app.config import settings
+from app.models.audit_log import ActionType
+from app.utils.audit_log import create_audit_log
 
 router = APIRouter()
 
@@ -35,6 +37,7 @@ async def upload_avatar(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    request: Request = None,
 ):
     """Profil rasmini yuklash"""
     
@@ -75,6 +78,17 @@ async def upload_avatar(
     current_user.avatar_url = image_url
     db.commit()
     db.refresh(current_user)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.UPDATE,
+        resource_type="user",
+        resource_id=current_user.id,
+        description=f"Profil rasmi yangilandi: {current_user.email}",
+        request=request,
+    )
     
     return JSONResponse(content={
         "message": "Rasm muvaffaqiyatli yuklandi",

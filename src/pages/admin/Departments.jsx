@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Label } from '../../components/ui/Label';
 import { Select } from '../../components/ui/Select';
 import {
   Card,
@@ -355,63 +354,56 @@ export function Departments() {
 
       {/* Search and Filters */}
       <Card>
-        <CardContent className="pt-6 space-y-4">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Yo'nalish nomi, kodi yoki tavsif bo'yicha qidirish..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          {/* Filters */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t">
-            <div className="space-y-2">
-              <Label htmlFor="filter-department" className="text-sm">Yo'nalish bo'yicha</Label>
-              <Select
-                id="filter-department"
-                value={filterDepartment}
-                onChange={(e) => setFilterDepartment(e.target.value)}
-              >
-                <option value="">Barcha yo'nalishlar</option>
-                {departments.map((dept) => (
-                  <option key={dept.id} value={dept.name}>
-                    {dept.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="filter-course" className="text-sm">Kurs bo'yicha</Label>
-              <Select
-                id="filter-course"
-                value={filterCourse}
-                onChange={(e) => setFilterCourse(e.target.value)}
-              >
-                <option value="all">Barcha kurslar</option>
-                <option value="1">1-kurs</option>
-                <option value="2">2-kurs</option>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="filter-group" className="text-sm">Guruh bo'yicha</Label>
+        <CardContent className="pt-6">
+          {/* Search and Filters - bir qatorda */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Qidiruv input - kattalashtirildi */}
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                id="filter-group"
-                placeholder="Guruh nomini kiriting..."
-                value={filterGroup}
-                onChange={(e) => setFilterGroup(e.target.value)}
+                placeholder="Yo'nalish nomi, kodi yoki tavsif bo'yicha qidirish..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
               />
             </div>
-          </div>
 
-          {/* Filter reset button */}
-          {(filterDepartment || filterGroup || (filterCourse && filterCourse !== 'all')) && (
-            <div className="flex justify-end pt-2">
+            {/* Filters */}
+            <Select
+              id="filter-department"
+              value={filterDepartment}
+              onChange={(e) => setFilterDepartment(e.target.value)}
+              className="w-full sm:w-[180px]"
+            >
+              <option value="">Barcha yo'nalishlar</option>
+              {departments.map((dept) => (
+                <option key={dept.id} value={dept.name}>
+                  {dept.name}
+                </option>
+              ))}
+            </Select>
+
+            <Select
+              id="filter-course"
+              value={filterCourse}
+              onChange={(e) => setFilterCourse(e.target.value)}
+              className="w-full sm:w-[150px]"
+            >
+              <option value="all">Barcha kurslar</option>
+              <option value="1">1-kurs</option>
+              <option value="2">2-kurs</option>
+            </Select>
+
+            <Input
+              id="filter-group"
+              placeholder="Guruh nomini kiriting..."
+              value={filterGroup}
+              onChange={(e) => setFilterGroup(e.target.value)}
+              className="w-full sm:w-[180px]"
+            />
+
+            {/* Filter reset button */}
+            {(filterDepartment || filterGroup || (filterCourse && filterCourse !== 'all')) && (
               <Button
                 variant="outline"
                 size="sm"
@@ -420,11 +412,12 @@ export function Departments() {
                   setFilterGroup('');
                   setFilterCourse('all');
                 }}
+                className="w-full sm:w-auto shrink-0"
               >
                 Filterni tozalash
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </CardContent>
       </Card>
 

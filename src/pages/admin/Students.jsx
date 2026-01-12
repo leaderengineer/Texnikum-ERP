@@ -14,8 +14,11 @@ import { Select } from '../../components/ui/Select';
 import { studentsAPI, groupsAPI, departmentsAPI } from '../../services/api';
 import { StudentModal } from '../../components/modals/StudentModal';
 import { Pagination } from '../../components/ui/Pagination';
+import useAuthStore from '../../store/authStore';
 
 export function Students() {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   const [students, setStudents] = useState([]);
   const [groups, setGroups] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -241,10 +244,12 @@ export function Students() {
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground mt-1">Talabalar ro'yxati va boshqaruvi</p>
         </div>
-        <Button onClick={handleAdd} className="w-full sm:w-auto touch-manipulation">
-          <Plus className="mr-2 h-4 w-4" />
-          Qo'shish
-        </Button>
+        {isAdmin && (
+          <Button onClick={handleAdd} className="w-full sm:w-auto touch-manipulation">
+            <Plus className="mr-2 h-4 w-4" />
+            Qo'shish
+          </Button>
+        )}
       </div>
 
       <Card>
@@ -254,10 +259,10 @@ export function Students() {
         </CardHeader>
         <CardContent>
           <div className="mb-6 space-y-4">
-            {/* Qidirish va Filterlar */}
-            <div className="space-y-3">
-              {/* Qidirish input */}
-              <div className="relative flex-1">
+            {/* Qidirish va Filterlar - bir qatorda */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Qidiruv input - kattalashtirildi */}
+              <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Qidirish (ism, familiya, ID, email, guruh, yo'nalish)..."
@@ -276,56 +281,54 @@ export function Students() {
               </div>
 
               {/* Filterlar */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Select
-                  value={filterDepartment}
-                  onChange={(e) => setFilterDepartment(e.target.value)}
-                  disabled={loadingFilters}
-                  className="w-full sm:w-[200px]"
-                >
-                  <option value="all">Barcha yo'nalishlar</option>
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.name}>
-                      {dept.name}
-                    </option>
-                  ))}
-                </Select>
+              <Select
+                value={filterDepartment}
+                onChange={(e) => setFilterDepartment(e.target.value)}
+                disabled={loadingFilters}
+                className="w-full sm:w-[180px]"
+              >
+                <option value="all">Barcha yo'nalishlar</option>
+                {departments.map((dept) => (
+                  <option key={dept.id} value={dept.name}>
+                    {dept.name}
+                  </option>
+                ))}
+              </Select>
 
-                <Select
-                  value={filterGroup}
-                  onChange={(e) => setFilterGroup(e.target.value)}
-                  disabled={loadingFilters}
-                  className="w-full sm:w-[200px]"
-                >
-                  <option value="all">Barcha guruhlar</option>
-                  {groups.map((group) => (
-                    <option key={group.id} value={group.name}>
-                      {group.name}
-                    </option>
-                  ))}
-                </Select>
+              <Select
+                value={filterGroup}
+                onChange={(e) => setFilterGroup(e.target.value)}
+                disabled={loadingFilters}
+                className="w-full sm:w-[180px]"
+              >
+                <option value="all">Barcha guruhlar</option>
+                {groups.map((group) => (
+                  <option key={group.id} value={group.name}>
+                    {group.name}
+                  </option>
+                ))}
+              </Select>
 
-                <Select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="w-full sm:w-[150px]"
-                >
-                  <option value="all">Barcha holatlar</option>
-                  <option value="active">Faol</option>
-                  <option value="inactive">Nofaol</option>
-                </Select>
+              <Select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full sm:w-[150px]"
+              >
+                <option value="all">Barcha holatlar</option>
+                <option value="active">Faol</option>
+                <option value="inactive">Nofaol</option>
+              </Select>
 
-                {activeFiltersCount > 0 && (
-                  <Button
-                    variant="outline"
-                    onClick={clearFilters}
-                    className="w-full sm:w-auto"
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Tozalash ({activeFiltersCount})
-                  </Button>
-                )}
-              </div>
+              {activeFiltersCount > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={clearFilters}
+                  className="w-full sm:w-auto shrink-0"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Tozalash ({activeFiltersCount})
+                </Button>
+              )}
             </div>
 
             {/* Natijalar va statistika */}
@@ -452,23 +455,27 @@ export function Students() {
                     </div>
 
                     <div className="flex justify-end gap-2 pt-2 border-t">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(student)}
-                        className="flex-1 sm:flex-none touch-manipulation"
-                      >
-                        <Edit className="h-4 w-4 sm:mr-1" />
-                        <span className="hidden sm:inline">Tahrirlash</span>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(student.id)}
-                        className="text-destructive hover:text-destructive touch-manipulation"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {isAdmin && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(student)}
+                            className="flex-1 sm:flex-none touch-manipulation"
+                          >
+                            <Edit className="h-4 w-4 sm:mr-1" />
+                            <span className="hidden sm:inline">Tahrirlash</span>
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(student.id)}
+                            className="text-destructive hover:text-destructive touch-manipulation"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -553,24 +560,28 @@ export function Students() {
                       </td>
                       <td className="p-3">
                         <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(student)}
-                            className="h-8 w-8 p-0"
-                            title="Tahrirlash"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(student.id)}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                            title="O'chirish"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {isAdmin && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(student)}
+                                className="h-8 w-8 p-0"
+                                title="Tahrirlash"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDelete(student.id)}
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                title="O'chirish"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

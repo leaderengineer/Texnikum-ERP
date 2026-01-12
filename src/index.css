@@ -113,3 +113,17 @@
     }
   }
 }
+
+/* Email input rangini to'g'rilash - dark mode'da ko'rinishi uchun */
+input[type="email"] {
+  color: hsl(var(--foreground)) !important;
+}
+
+input[type="email"]:-webkit-autofill {
+  -webkit-text-fill-color: hsl(var(--foreground)) !important;
+}
+
+input[type="email"]:-webkit-autofill:hover,
+input[type="email"]:-webkit-autofill:focus {
+  -webkit-text-fill-color: hsl(var(--foreground)) !important;
+}

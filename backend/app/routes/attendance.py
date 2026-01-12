@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from datetime import date
 from app.database import get_db
@@ -10,6 +10,8 @@ from app.models.institution import Institution
 from app.schemas.attendance import AttendanceCreate, AttendanceUpdate, AttendanceResponse
 from app.auth import get_current_user
 from app.utils.geolocation import is_within_radius, calculate_distance
+from app.models.audit_log import ActionType
+from app.utils.audit_log import create_audit_log
 
 router = APIRouter()
 
@@ -120,6 +122,7 @@ async def create_attendance(
     attendance_data: AttendanceCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Yangi davomat yozuvi qo'shish"""
     # Institution ma'lumotlarini olish
@@ -193,6 +196,18 @@ async def create_attendance(
         existing.student_student_id = attendance_data.student_student_id
         db.commit()
         db.refresh(existing)
+        
+        # Audit log
+        create_audit_log(
+            db=db,
+            user=current_user,
+            action=ActionType.UPDATE,
+            resource_type="attendance",
+            resource_id=existing.id,
+            description=f"Davomat yangilandi: {attendance_data.student_name} ({attendance_data.date}, {attendance_data.group}, {attendance_data.subject}) - {attendance_data.status}",
+            request=request,
+        )
+        
         return existing
     else:
         # Yangi yaratish
@@ -205,6 +220,18 @@ async def create_attendance(
         db.add(attendance)
         db.commit()
         db.refresh(attendance)
+        
+        # Audit log
+        create_audit_log(
+            db=db,
+            user=current_user,
+            action=ActionType.CREATE,
+            resource_type="attendance",
+            resource_id=attendance.id,
+            description=f"Yangi davomat yozuvi qo'shildi: {attendance_data.student_name} ({attendance_data.date}, {attendance_data.group}, {attendance_data.subject}) - {attendance_data.status}",
+            request=request,
+        )
+        
         return attendance
 
 
@@ -214,6 +241,7 @@ async def update_attendance(
     attendance_data: AttendanceUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Davomat yozuvini yangilash"""
     attendance = db.query(Attendance).filter(
@@ -224,11 +252,25 @@ async def update_attendance(
         raise HTTPException(status_code=404, detail="Attendance not found")
     
     update_data = attendance_data.model_dump(exclude_unset=True)
+    update_fields = list(update_data.keys())
+    
     for field, value in update_data.items():
         setattr(attendance, field, value)
     
     db.commit()
     db.refresh(attendance)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.UPDATE,
+        resource_type="attendance",
+        resource_id=attendance_id,
+        description=f"Davomat yozuvi yangilandi: {attendance.student_name} (o'zgartirilgan maydonlar: {', '.join(update_fields)})",
+        request=request,
+    )
+    
     return attendance
 
 
@@ -237,6 +279,7 @@ async def delete_attendance(
     attendance_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Davomat yozuvini o'chirish"""
     attendance = db.query(Attendance).filter(
@@ -246,7 +289,21 @@ async def delete_attendance(
     if not attendance:
         raise HTTPException(status_code=404, detail="Attendance not found")
     
+    student_name = attendance.student_name
+    
     db.delete(attendance)
     db.commit()
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.DELETE,
+        resource_type="attendance",
+        resource_id=attendance_id,
+        description=f"Davomat yozuvi o'chirildi: {student_name} ({attendance.date})",
+        request=request,
+    )
+    
     return {"message": "Attendance deleted successfully"}
 

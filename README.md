@@ -1,184 +1,184 @@
-# Texnikum ERP
+# Texnikum ERP Tizimi
 
-Zamonaviy Texnikum uchun ta'limga mo'ljallangan ERP tizimi.
+Texnikumlar uchun yaratilgan o'quv jarayonlarini boshqarish tizimi. Bu dastur yordamida talabalar, o'qituvchilar va ma'murlar barcha ishlarni bir joydan boshqarishlari mumkin.
 
-## Texnologiyalar
+## Bu tizim nima qiladi?
 
-- **Frontend**: React 19 + Vite
-- **UI**: TailwindCSS + shadcn/ui style components
-- **State Management**: Zustand
-- **Routing**: React Router v6
-- **Form Validation**: React Hook Form + Zod
-- **Charts**: Recharts
-- **Icons**: Lucide React
-- **HTTP Client**: Axios
+Bu tizim texnikumning barcha faoliyatini raqamlashtirishga yordam beradi. Qog'oz va daftarlardan foydalanishning o'rniga, hamma narsa kompyuterda va telefonlarda boshqariladi.
 
-## O'rnatish
+## Kimlar foydalanishi mumkin?
 
-```bash
-# Dependencies o'rnatish
-npm install
+Tizimda 3 turdagi foydalanuvchilar bor:
 
-# Development server ishga tushirish
-npm run dev
+1. **Admin (Ma'mur)** - Tizimning barcha qismlarini boshqaradi
+2. **O'qituvchi** - Darslar, davomat va baholarni boshqaradi
+3. **Talaba** - O'z natijalari va darslarini ko'radi
 
-# Production build yaratish
-npm run build
+## Asosiy imkoniyatlar
 
-# Build preview
-npm run preview
-```
+### 📊 Dashboard (Asosiy sahifa)
+- Barcha ma'lumotlarni bir ko'rinishda ko'rish
+- Statistika va grafiklar (qancha talaba, o'qituvchi, darslar va h.k.)
+- Oxirgi qilingan ishlarni ko'rish
 
-## Konfiguratsiya
+### 👥 O'qituvchilar boshqaruvi
+- O'qituvchilar ro'yxatini ko'rish
+- Yangi o'qituvchi qo'shish
+- O'qituvchi ma'lumotlarini o'zgartirish
+- O'qituvchini o'chirish
+- O'qituvchi profil rasmini o'zgartirish
 
-`.env.example` faylini `.env` ga ko'chiring va backend API URL ni kiriting:
+### 🎓 Talabalar boshqaruvi
+- Talabalar ro'yxatini ko'rish va qidirish
+- Yangi talaba qo'shish
+- Talaba ma'lumotlarini tahrirlash
+- Talabani guruhga tayinlash
+- Talabani o'chirish yoki faollashtirish
 
-```
-VITE_API_BASE_URL=http://localhost:3000/api
-```
+### 📚 Guruhlar va Yo'nalishlar
+- Guruhlar ro'yxatini ko'rish (masalan: 1-kurs, 2-kurs)
+- Yangi guruh yaratish
+- Yo'nalishlar boshqaruvi (Kafedralar)
+- Guruhlarga talabalar tayinlash
 
-## Struktura
+### 📅 Dars Jadvali
+- Har bir guruh uchun dars jadvali yaratish
+- Dars jadvalini ko'rish (qaysi kuni, qaysi vaqtda, qaysi fan)
+- Dars jadvalini tahrirlash
+- O'qituvchi va xona ma'lumotlarini kiritish
 
-```
-src/
-├── components/          # Reusable komponentlar
-│   ├── ui/            # UI komponentlar (Button, Input, Card, va h.k.)
-│   ├── layout/        # Layout komponentlar (Sidebar, Header)
-│   ├── auth/          # Authentication komponentlar
-│   └── modals/        # Modal oynalar
-├── pages/             # Sahifalar
-│   ├── Login.jsx      # Kirish sahifasi
-│   ├── Dashboard.jsx  # Dashboard
-│   └── admin/         # Admin modullari
-├── services/          # API servislar
-├── store/             # State management (Zustand)
-├── contexts/          # React Context API
-├── lib/               # Utility funksiyalar
-└── App.jsx            # Asosiy App komponenti
-```
+### ✅ Davomat Tizimi
+- Talabalarning darsga qatnashishini belgilash
+- Geolocation (GPS) orqali davomat olish (faqat muassasa hududida)
+- Dars vaqtini tekshirish (faqat dars vaqtida davomat olish mumkin)
+- Kunlik va oylik davomat statistikasi
+- Davomat ma'lumotlarini Excel fayliga yuklab olish
+- Qatnashgan va qatnashmagan talabalarni ko'rish
 
-## Funksiyalar
+### 📖 Kutubxona Tizimi
+- Kitoblar ro'yxatini ko'rish
+- Yangi kitob qo'shish
+- Talabaga kitob berish
+- Kitobni qaytarish
+- Qaysi talaba qaysi kitobni olganini kuzatish
+- Qaytarish muddatini ko'rish
 
-### Autentifikatsiya
-- Login/Logout
-- Rol-asosidagi kirish (Admin, O'qituvchi)
-- Sessiya saqlash (localStorage)
+### 📄 Dars Materiallari
+- Dars materiallarini yuklash (PDF, Word, PowerPoint fayllar)
+- Materiallarni fanlar bo'yicha tartiblash
+- Talabalar materiallarni yuklab olishi mumkin
+- O'qituvchilar materiallarni yuklash va boshqarishi mumkin
+- Yangi fanlar qo'shish (faqat admin)
 
-### Admin Panel
-- **Dashboard**: Umumiy statistika va diagrammalar
-- **O'qituvchilar**: CRUD operatsiyalari
-- **Talabalar**: CRUD operatsiyalari
-- **Dars jadvallari**: Yaratish, tahrirlash, ko'rish
-- **Davomat**: Kunlik/oylik davomat boshqaruvi
-- **Kutubxona**: Kitoblar boshqaruvi
-- **Yo'nalishlar**: Kafedralar boshqaruvi
-- **Audit log**: O'zgartirishlar tarixi
+### 📝 Baholash Tizimi
+- Talabalarga baho berish
+- Fanlar bo'yicha baholarni ko'rish
+- Baholarni tahrirlash
+- Statistika va o'rtacha baholarni hisoblash
 
-### O'qituvchi Panel
-- Profil ko'rish va yangilash
-- Davomatni belgilash
-- Talabalar ro'yxatini ko'rish
-- Dars jadvalini ko'rish
+### 📋 Imtihonlar (Testlar)
+- Imtihonlar yaratish
+- Savollar qo'shish
+- Talabalar imtihon topshirishi mumkin
+- Avtomatik baholash
+- Imtihon natijalarini ko'rish
 
-## Dizayn
+### 🔍 Audit Log (Harakatlar Tarixi)
+- Tizimda kim, qachon, qanday o'zgarishlar qilganini ko'rish
+- Barcha qilingan ishlarni kuzatish (qo'shish, o'zgartirish, o'chirish)
+- Login va Logout ma'lumotlari
+- Xavfsizlik va nazorat uchun
 
-- **Light/Dark mode**: Tugma orqali o'zgartirish
-- **Responsive**: Mobil va desktop uchun optimallashtirilgan
-- **Accessibility**: Keyboard navigation va semantic HTML
-- **Performance**: Code-splitting va lazy-loading
+### ⚙️ Sozlamalar
+- Muassasa ma'lumotlarini o'zgartirish
+- Geolocation sozlamalari (GPS koordinatalari va radius)
+- Xaritada muassasa joylashuvini belgilash
+- Xaritada qidirish orqali joylashuvni topish
 
-## API Kontraktlar
+## Qanday ishlatiladi?
 
-Barcha API endpointlar `src/services/api.js` faylida belgilangan. Backend bilan bog'lanishda ushbu kontraktlardan foydalaning.
+### O'qituvchi uchun:
+1. Tizimga kirish (email va parol bilan)
+2. Dars jadvalini ko'rish
+3. Dars vaqtida davomat olish (faqat dars vaqtida)
+4. Dars materiallarini yuklash
+5. Talabalarga baho berish
+6. Imtihonlar yaratish
 
-### Example Endpoints:
-- `GET /api/teachers` - O'qituvchilar ro'yxati
-- `POST /api/teachers` - Yangi o'qituvchi qo'shish
-- `PUT /api/teachers/:id` - O'qituvchini yangilash
-- `DELETE /api/teachers/:id` - O'qituvchini o'chirish
+### Talaba uchun:
+1. Tizimga kirish
+2. O'z dars jadvalini ko'rish
+3. Dars materiallarini yuklab olish
+4. O'z baholarini ko'rish
+5. Imtihonlar topshirish
+6. O'z profilini ko'rish
 
-Hammasi uchun shu struktura kuzatiladi.
+### Admin uchun:
+1. Barcha bo'limlarni boshqarish
+2. O'qituvchilar va talabalar qo'shish
+3. Guruhlar va yo'nalishlar yaratish
+4. Dars jadvalini tayyorlash
+5. Kutubxonani boshqarish
+6. Barcha statistikani ko'rish
+7. Audit log orqali barcha ishlarni kuzatish
 
-## Test Login
+## Maxsus funksiyalar
 
-Development uchun:
-- **Admin**: `admin@example.com` (istalgan parol, 6+ belgi)
-- **O'qituvchi**: `teacher@example.com` (istalgan parol, 6+ belgi)
+### Geolocation (Joylashuv tekshiruvi)
+- Davomat olishda GPS orqali muassasa joylashuvini tekshirish
+- Faqat muassasa atrofida bo'lganda davomat olish mumkin
+- Xaritada muassasa joylashuvini ko'rish va o'zgartirish
 
-## Backend
+### Dark Mode (Qorong'i rejim)
+- Tizim yorug' va qorong'i rejimda ishlaydi
+- Foydalanuvchi o'z xohishiga ko'ra tanlaydi
 
-Backend FastAPI asosida yaratilgan va `backend/` papkasida joylashgan.
+### Responsive dizayn
+- Kompyuterdan ham, telefondan ham ishlatish mumkin
+- Barcha qurilmalarda qulay ko'rinadi
 
-### Backend o'rnatish
+## Qanday o'rnatiladi?
+
+### 1. Backend (Server qismi) o'rnatish:
 
 ```bash
 cd backend
-
-# Virtual environment yaratish
 python -m venv venv
 venv\Scripts\activate  # Windows
-# yoki
-source venv/bin/activate  # Linux/Mac
-
-# Dependencies o'rnatish
 pip install -r requirements.txt
-
-# Database initializatsiya
 python init_db.py
-
-# Server ishga tushirish
 python run.py
 ```
 
-Backend `http://localhost:8000` da ishga tushadi.
+Server `http://localhost:8000` da ishga tushadi.
 
-### API Dokumentatsiya
+### 2. Frontend (Veb qismi) o'rnatish:
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
-Batafsil ma'lumot uchun `backend/README.md` ni ko'ring.
-
-### Deployment
-
-#### Backend Deployment (Railway)
-
-Backend'ni Railway'da deploy qilish uchun `backend/DEPLOYMENT.md` ni ko'ring.
-
-**Tezkor qadamlar:**
-1. Railway'ga kirish va GitHub repo'ni ulash
-2. PostgreSQL database qo'shish
-3. Environment variables sozlash
-4. Deploy!
-
-API URL oling va frontend environment variable ga qo'shing:
-```
-VITE_API_BASE_URL=https://your-backend.railway.app/api
+```bash
+npm install
+npm run dev
 ```
 
-#### Frontend Deployment (Vercel)
+Veb sahifa `http://localhost:5173` da ochiladi.
 
-**MUHIM**: Vercel'da backend ishlamaydi! Backend'ni Railway'ga deploy qiling.
+## Foydalanish uchun kerakli narsalar
 
-Frontend'ni Vercel'ga deploy qilish uchun `VERCEL_DEPLOYMENT.md` ni ko'ring.
+1. **Python** - Backend ishlashi uchun
+2. **Node.js** - Frontend ishlashi uchun
+3. **Brauzer** - Veb sahifani ko'rish uchun (Chrome, Firefox, Edge)
+4. **Internet** - Geolocation funksiyasi uchun
 
-**Tezkor qadamlar:**
-1. Vercel'ga kirish va GitHub repo'ni ulash
-2. Build settings sozlash (Vite)
-3. Environment variable qo'shish: `VITE_API_BASE_URL=https://your-backend.railway.app/api`
-4. Deploy!
+## Xavfsizlik
 
-**Batafsil qo'llanma**: `VERCEL_DEPLOYMENT.md` faylini ko'ring.
-
-## Keyingi qadamlar
-
-1. ✅ Backend API yaratish (FastAPI)
-2. ✅ Haqiqiy authentication integratsiyasi
-3. Real-time updates (WebSocket)
-4. Fayl yuklash funksiyasi
-5. Eksport/Import funksiyalari
-6. Unit va E2E testlar
+- Parollar xavfsiz tarzda saqlanadi
+- Har bir foydalanuvchi o'z huquqlariga ega
+- Barcha harakatlar kuzatiladi (Audit Log)
+- JWT token orqali xavfsiz kirish
 
 ## Yordam
 
-Savollar bo'lsa, loyiha issues bo'limiga yozing.
+Muammo bo'lsa yoki savollar bo'lsa, loyiha issues bo'limiga yozing.
+
+---
+
+**Texnikum ERP** - Ta'limni raqamlashtirish orqali sizning texnikumingiz zamonaviy va samarali ishlaydi! 🚀

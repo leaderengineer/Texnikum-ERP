@@ -45,6 +45,7 @@ export function Settings() {
   const [radius, setRadius] = useState('500');
   const [mapsLink, setMapsLink] = useState('');
   const [mapSearchQuery, setMapSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
   
   // Akkaunt sozlamalari
   const [firstName, setFirstName] = useState('');
@@ -64,138 +65,165 @@ export function Settings() {
 
       console.log('Geolocation API chaqirilmoqda... GPS yoqilganligini tekshiring.');
 
-      // watchPosition dan foydalanish - bu real-time GPS koordinatalarini oladi
-      // Birinchi marta aniq koordinatalar olinganda, watchPosition'ni to'xtatamiz
-      let watchId = null;
-      let timeoutId = null;
-      let bestPosition = null;
-      let attempts = 0;
-      const maxAttempts = 10; // 10 marta urinish - ko'proq vaqt beramiz
-      const targetAccuracy = 100; // 100 metr aniqlik yetarli
-      const maxAcceptableAccuracy = 5000; // 5 km - buning yuqorisi IP-based location
-
-      const cleanup = () => {
-        if (watchId !== null) {
-          navigator.geolocation.clearWatch(watchId);
-          watchId = null;
-        }
-        if (timeoutId !== null) {
-          clearTimeout(timeoutId);
-          timeoutId = null;
-        }
+      // Geolocation options - GPS dan foydalanishni majbur qiladi
+      const geoOptions = {
+        enableHighAccuracy: true, // GPS dan foydalanishni majbur qiladi (IP-based location emas)
+        timeout: 60000, // 60 soniya - GPS signal olish uchun ko'proq vaqt
+        maximumAge: 0, // Cache'dan foydalanmaslik - har doim yangi GPS koordinatalarini olish
       };
 
-      // Timeout - 30 soniyadan keyin eng yaxshi koordinatalarni qaytarish
-      timeoutId = setTimeout(() => {
-        cleanup();
-        if (bestPosition) {
-          const accuracy = bestPosition.coords.accuracy || Infinity;
-          console.log('Geolocation timeout - eng yaxshi koordinatalar qaytarilmoqda:', {
-            latitude: bestPosition.coords.latitude,
-            longitude: bestPosition.coords.longitude,
-            accuracy: accuracy,
-          });
-          
-          // Accuracy tekshiruvi - agar accuracy juda past bo'lsa ham, koordinatalarni qaytarish
-          // (desktop kompyuterlarda GPS yo'q, shuning uchun IP-based location ishlatiladi)
-          if (accuracy > maxAcceptableAccuracy) {
-            const accuracyKm = Math.round(accuracy / 1000);
-            console.warn(`Accuracy juda past (${accuracyKm} km). Bu desktop kompyuter yoki IP-based location ekanligini ko'rsatadi.`);
-            // Koordinatalarni qaytarish, lekin ogohlantirish bilan
-            resolve({
-              latitude: bestPosition.coords.latitude,
-              longitude: bestPosition.coords.longitude,
-              accuracy: accuracy,
-              warning: `Joylashuv aniqligi past (${accuracyKm} km). Desktop kompyuterlarda GPS yo'q. Xaritada marker'ni harakatlantiring yoki koordinatalarni qo'lda kiriting.`
-            });
-            return;
-          }
-          
-          resolve({
-            latitude: bestPosition.coords.latitude,
-            longitude: bestPosition.coords.longitude,
-          });
-        } else {
-          reject(new Error('Joylashuv ma\'lumotlarini olish vaqti tugadi. Xaritada marker\'ni harakatlantiring yoki koordinatalarni qo\'lda kiriting.'));
-        }
-      }, 30000); // 30 soniyaga oshirildi
-
-      // watchPosition - real-time GPS koordinatalarini oladi
-      watchId = navigator.geolocation.watchPosition(
+      // Avval getCurrentPosition dan foydalanish - bu tezroq natija beradi
+      navigator.geolocation.getCurrentPosition(
         (position) => {
-          attempts++;
           const accuracy = position.coords.accuracy || Infinity;
-          
-          console.log(`Geolocation API javob berdi (${attempts}/${maxAttempts}):`, {
+          console.log('Geolocation getCurrentPosition natijasi:', {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
             accuracy: accuracy,
-            timestamp: new Date(position.timestamp).toLocaleTimeString(),
           });
 
-          // Eng aniq koordinatalarni saqlash (accuracy pastroq = yaxshiroq)
-          if (!bestPosition || accuracy < (bestPosition.coords.accuracy || Infinity)) {
-            bestPosition = position;
-            console.log('Yangi eng yaxshi koordinatalar topildi:', {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              accuracy: accuracy,
-            });
+          // Accuracy tekshiruvi - agar accuracy juda past bo'lsa (IP-based location), watchPosition dan foydalanish
+          const maxAcceptableAccuracy = 1000; // 1 km - buning yuqorisi IP-based location (qattiqroq tekshiruv)
+          if (accuracy > maxAcceptableAccuracy) {
+            console.warn(`Accuracy juda past (${Math.round(accuracy / 1000)} km). watchPosition dan foydalanish...`);
+            // watchPosition dan foydalanish - bu aniqroq koordinatalar olishga harakat qiladi
+            startWatchPosition(resolve, reject, geoOptions);
+            return;
           }
 
-          // Agar accuracy yaxshi bo'lsa (targetAccuracy metrdan kam) yoki maxAttempts marta urinish bo'lsa, to'xtatamiz
-          if (accuracy <= targetAccuracy || attempts >= maxAttempts) {
-            cleanup();
-            const finalPosition = bestPosition || position;
-            const finalAccuracy = finalPosition.coords.accuracy || Infinity;
-            
-            console.log('Geolocation natijasi:', {
-              latitude: finalPosition.coords.latitude,
-              longitude: finalPosition.coords.longitude,
-              accuracy: finalAccuracy,
-              attempts: attempts,
-            });
-            
-            // Accuracy tekshiruvi - agar accuracy juda past bo'lsa ham, koordinatalarni qaytarish
-            const maxAcceptableAccuracy = 5000; // 5 km
-            if (finalAccuracy > maxAcceptableAccuracy) {
-              const accuracyKm = Math.round(finalAccuracy / 1000);
-              console.warn(`Accuracy juda past (${accuracyKm} km). Bu desktop kompyuter yoki IP-based location ekanligini ko'rsatadi.`);
-              // Koordinatalarni qaytarish, lekin ogohlantirish bilan
-              resolve({
-                latitude: finalPosition.coords.latitude,
-                longitude: finalPosition.coords.longitude,
-                accuracy: finalAccuracy,
-                warning: `Joylashuv aniqligi past (${accuracyKm} km). Desktop kompyuterlarda GPS yo'q. Xaritada marker'ni harakatlantiring yoki koordinatalarni qo'lda kiriting.`
-              });
-              return;
-            }
-            
-            console.log('Geolocation muvaffaqiyatli - aniq koordinatalar olingan:', {
-              latitude: finalPosition.coords.latitude,
-              longitude: finalPosition.coords.longitude,
-              accuracy: finalAccuracy,
-              attempts: attempts,
-            });
-            
-            resolve({
-              latitude: finalPosition.coords.latitude,
-              longitude: finalPosition.coords.longitude,
-            });
-          }
+          // Aniq koordinatalar olingan
+          console.log('Geolocation muvaffaqiyatli - aniq koordinatalar olingan:', {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: accuracy,
+          });
+
+          resolve({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
         },
         (error) => {
-          cleanup();
-          console.error('Geolocation API xatolik:', error);
-          reject(error);
+          console.warn('getCurrentPosition xatolik, watchPosition dan foydalanish...', error);
+          // Agar getCurrentPosition muvaffaqiyatsiz bo'lsa, watchPosition dan foydalanish
+          startWatchPosition(resolve, reject, geoOptions);
         },
-        {
-          enableHighAccuracy: true, // GPS'ni majburiy qilish - bu IP-based location'ni o'chirib qo'yadi
-          timeout: 30000, // 30 soniya
-          maximumAge: 0, // Eski koordinatalarni ishlatmaslik - faqat yangi GPS koordinatalarini olish
-        }
+        geoOptions
       );
     });
+  };
+
+  // watchPosition dan foydalanish - bu aniqroq koordinatalar olishga harakat qiladi
+  const startWatchPosition = (resolve, reject, geoOptions) => {
+    let watchId = null;
+    let timeoutId = null;
+    let bestPosition = null;
+    let attempts = 0;
+    const maxAttempts = 30; // 30 marta urinish - GPS signal olish uchun ko'proq vaqt
+    const targetAccuracy = 50; // 50 metr aniqlik yetarli (yaxshiroq)
+    const maxAcceptableAccuracy = 1000; // 1 km - buning yuqorisi IP-based location (qattiqroq tekshiruv)
+
+    const cleanup = () => {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    // Timeout - 60 soniyadan keyin eng yaxshi koordinatalarni qaytarish
+    timeoutId = setTimeout(() => {
+      cleanup();
+      if (bestPosition) {
+        const accuracy = bestPosition.coords.accuracy || Infinity;
+        console.log('Geolocation timeout - eng yaxshi koordinatalar qaytarilmoqda:', {
+          latitude: bestPosition.coords.latitude,
+          longitude: bestPosition.coords.longitude,
+          accuracy: accuracy,
+        });
+        
+        // Accuracy tekshiruvi - agar accuracy juda past bo'lsa, xatolik qaytarish
+        if (accuracy > maxAcceptableAccuracy) {
+          const accuracyKm = Math.round(accuracy / 1000);
+          reject(new Error(`Joylashuv aniqligi yetarli emas (${accuracyKm} km xatolik). GPS to'g'ri ishlamayapti yoki yoqilmagan. Iltimos: 1) GPS'ni yoqing (telefon/kompyuter sozlamalarida), 2) Ochiq havoda turib qayta urinib ko'ring, 3) Brauzer ruxsatini tekshiring, 4) WiFi yoki mobil internet yoqilganligini tekshiring.`));
+          return;
+        }
+        
+        resolve({
+          latitude: bestPosition.coords.latitude,
+          longitude: bestPosition.coords.longitude,
+        });
+      } else {
+        reject(new Error('Joylashuv ma\'lumotlarini olish vaqti tugadi. Iltimos, GPS\'ni yoqing va qayta urinib ko\'ring.'));
+      }
+    }, 60000); // 60 soniyaga oshirildi
+
+    // watchPosition - real-time GPS koordinatalarini oladi
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        attempts++;
+        const accuracy = position.coords.accuracy || Infinity;
+        
+        console.log(`Geolocation watchPosition javob berdi (${attempts}/${maxAttempts}):`, {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: accuracy,
+          timestamp: new Date(position.timestamp).toLocaleTimeString(),
+        });
+
+        // Eng aniq koordinatalarni saqlash (accuracy pastroq = yaxshiroq)
+        if (!bestPosition || accuracy < (bestPosition.coords.accuracy || Infinity)) {
+          bestPosition = position;
+          console.log('Yangi eng yaxshi koordinatalar topildi:', {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: accuracy,
+          });
+        }
+
+        // Agar accuracy yaxshi bo'lsa (targetAccuracy metrdan kam) yoki maxAttempts marta urinish bo'lsa, to'xtatamiz
+        if (accuracy <= targetAccuracy || attempts >= maxAttempts) {
+          cleanup();
+          const finalPosition = bestPosition || position;
+          const finalAccuracy = finalPosition.coords.accuracy || Infinity;
+          
+          console.log('Geolocation natijasi:', {
+            latitude: finalPosition.coords.latitude,
+            longitude: finalPosition.coords.longitude,
+            accuracy: finalAccuracy,
+            attempts: attempts,
+          });
+          
+          // Accuracy tekshiruvi - agar accuracy juda past bo'lsa, xatolik qaytarish
+          if (finalAccuracy > maxAcceptableAccuracy) {
+            const accuracyKm = Math.round(finalAccuracy / 1000);
+            reject(new Error(`Joylashuv aniqligi yetarli emas (${accuracyKm} km xatolik). GPS to'g'ri ishlamayapti yoki yoqilmagan. Iltimos: 1) GPS'ni yoqing (telefon/kompyuter sozlamalarida), 2) Ochiq havoda turib qayta urinib ko'ring, 3) Brauzer ruxsatini tekshiring, 4) WiFi yoki mobil internet yoqilganligini tekshiring.`));
+            return;
+          }
+          
+          console.log('Geolocation muvaffaqiyatli - aniq koordinatalar olingan:', {
+            latitude: finalPosition.coords.latitude,
+            longitude: finalPosition.coords.longitude,
+            accuracy: finalAccuracy,
+            attempts: attempts,
+          });
+          
+          resolve({
+            latitude: finalPosition.coords.latitude,
+            longitude: finalPosition.coords.longitude,
+          });
+        }
+      },
+      (error) => {
+        cleanup();
+        console.error('Geolocation watchPosition xatolik:', error);
+        reject(error);
+      },
+      geoOptions
+    );
   };
 
   // Google Maps linkidan koordinatalarni olish
@@ -298,14 +326,13 @@ export function Settings() {
       console.log('Geolocation so\'ralmoqda... GPS yoqilganligini tekshiring.');
       
       // Foydalanuvchiga xabar berish
-      setSuccess('GPS koordinatalarini olish... Iltimos, kuting. GPS yoqilganligini tekshiring.');
+      setSuccess('GPS koordinatalarini olish... Iltimos, 60 soniya kuting. GPS yoqilganligini va brauzer ruxsatini tekshiring.');
       
       const location = await getCurrentLocation();
       
       // Koordinatalarni to'g'ri formatda olish
       const lat = location.latitude;
       const lng = location.longitude;
-      const warning = location.warning; // Ogohlantirish mavjud bo'lsa
       
       // Validatsiya
       if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng)) {
@@ -316,24 +343,18 @@ export function Settings() {
       const newLat = lat.toFixed(7);
       const newLng = lng.toFixed(7);
       
-      console.log('Geolocation natijasi:', { 
+      console.log('Geolocation muvaffaqiyatli olingan:', { 
         lat: newLat, 
         lng: newLng,
         originalLat: lat,
-        originalLng: lng,
-        warning: warning
+        originalLng: lng
       });
       
       // State'ni yangilash - bu LocationMap komponentini yangilaydi
       setLatitude(newLat);
       setLongitude(newLng);
       
-      // Agar ogohlantirish bo'lsa, uni ko'rsatish
-      if (warning) {
-        setError(warning);
-      } else {
-        setSuccess(`Joylashuv muvaffaqiyatli olingan! Koordinatalar: ${newLat}, ${newLng}`);
-      }
+      setSuccess(`Joylashuv muvaffaqiyatli olingan! Koordinatalar: ${newLat}, ${newLng}`);
       
       // Xarita yangilanishi uchun kichik kechikish
       setTimeout(() => {
@@ -381,6 +402,7 @@ export function Settings() {
     }
 
     try {
+      setSearching(true);
       setError('');
       setSuccess('');
       
@@ -408,6 +430,8 @@ export function Settings() {
     } catch (error) {
       console.error('Qidiruvda xatolik:', error);
       setError('Qidiruvda xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.');
+    } finally {
+      setSearching(false);
     }
   };
 
@@ -948,7 +972,7 @@ export function Settings() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <p className="text-xs font-medium text-muted-foreground">Muassasa nomi</p>
-                      <p className="text-sm font-semibold mt-1">{institution.name || 'Belgilanmagan'}</p>
+                      <p className="text-sm font-semibold mt-1">Dang'ara 1-son texnikumi</p>
                     </div>
                     {institution.address && (
                       <div>
@@ -956,12 +980,10 @@ export function Settings() {
                         <p className="text-sm font-semibold mt-1">{institution.address}</p>
                       </div>
                     )}
-                    {institution.region && (
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground">Viloyat</p>
-                        <p className="text-sm font-semibold mt-1">{institution.region}</p>
-                      </div>
-                    )}
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Viloyat</p>
+                      <p className="text-sm font-semibold mt-1">Farg'ona</p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -976,34 +998,6 @@ export function Settings() {
                   <li>Marker'ni harakatlantiring yoki koordinatalarni qo'lda kiriting</li>
                   <li>Radiusni belgilang (masalan: 500 metr - politexnikum binosi atrofida)</li>
                 </ol>
-              </div>
-
-              {/* Map Search */}
-              <div className="space-y-2">
-                <Label>Joylashuvni qidirish</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    value={mapSearchQuery}
-                    onChange={(e) => setMapSearchQuery(e.target.value)}
-                    placeholder="Masalan: Toshkent, Chilonzor tumani..."
-                    className="flex-1"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleMapSearch();
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleMapSearch}
-                  >
-                    <Search className="h-4 w-4 mr-2" />
-                    Qidirish
-                  </Button>
-                </div>
               </div>
 
               {/* Hozirgi joylashuvni olish (xarita yonida ko'rinadigan tugma) */}
@@ -1066,36 +1060,80 @@ export function Settings() {
               </div>
 
               {/* Coordinates and Radius - Grid Layout */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Latitude */}
+              <div className="space-y-4">
+                {/* Qidiruv input'i */}
                 <div className="space-y-2">
-                  <Label htmlFor="latitude">Kenglik (Latitude) *</Label>
+                  <Label>Joylashuvni qidirish</Label>
                   <div className="flex gap-2">
                     <Input
-                      id="latitude"
-                      type="number"
-                      step="any"
-                      value={latitude}
-                      onChange={(e) => setLatitude(e.target.value)}
-                      placeholder="41.3111"
+                      type="text"
+                      value={mapSearchQuery}
+                      onChange={(e) => setMapSearchQuery(e.target.value)}
+                      placeholder="Farg'ona, Dang'ara tumani"
                       className="flex-1"
+                      disabled={searching}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !searching) {
+                          e.preventDefault();
+                          handleMapSearch();
+                        }
+                      }}
                     />
                     <Button
                       type="button"
                       variant="outline"
-                      size="icon"
-                      onClick={handleGetCurrentLocation}
-                      disabled={gettingLocation}
-                      title="Hozirgi joylashuv"
+                      onClick={handleMapSearch}
+                      disabled={searching}
+                      className="flex items-center gap-2"
                     >
-                      {gettingLocation ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                      {searching ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Qidirilmoqda...
+                        </>
                       ) : (
-                        <MapPin className="h-4 w-4" />
+                        <>
+                          <Search className="h-4 w-4" />
+                          Qidirish
+                        </>
                       )}
                     </Button>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Joylashuvni qidiring va xaritada avtomatik belgilanadi
+                  </p>
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Latitude */}
+                  <div className="space-y-2">
+                    <Label htmlFor="latitude">Kenglik (Latitude) *</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="latitude"
+                        type="number"
+                        step="any"
+                        value={latitude}
+                        onChange={(e) => setLatitude(e.target.value)}
+                        placeholder="41.3111"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={handleGetCurrentLocation}
+                        disabled={gettingLocation}
+                        title="Hozirgi joylashuv"
+                      >
+                        {gettingLocation ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <MapPin className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
 
                 {/* Longitude */}
                 <div className="space-y-2">
@@ -1123,14 +1161,15 @@ export function Settings() {
                     placeholder="500"
                   />
                 </div>
-              </div>
+                </div>
 
-              {/* Info */}
-              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  <strong>Eslatma:</strong> O'qituvchilar davomat olish uchun belgilangan radius ichida bo'lishlari kerak. 
-                  Radiusdan tashqarida bo'lsa, davomat olish imkoni bo'lmaydi.
-                </p>
+                {/* Info */}
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <strong>Eslatma:</strong> O'qituvchilar davomat olish uchun belgilangan radius ichida bo'lishlari kerak. 
+                    Radiusdan tashqarida bo'lsa, davomat olish imkoni bo'lmaydi.
+                  </p>
+                </div>
               </div>
             </div>
           )}

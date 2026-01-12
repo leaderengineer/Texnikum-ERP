@@ -1,11 +1,13 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.models.institution import Institution
 from app.schemas.institution import InstitutionCreate, InstitutionUpdate, InstitutionResponse
 from app.auth import get_current_user, get_current_active_admin
+from app.models.audit_log import ActionType
+from app.utils.audit_log import create_audit_log
 
 router = APIRouter()
 
@@ -66,6 +68,7 @@ async def update_institution(
     institution_data: InstitutionUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """Muassasa ma'lumotlarini yangilash (faqat admin)"""
     institution = db.query(Institution).filter(Institution.id == institution_id).first()
@@ -77,11 +80,25 @@ async def update_institution(
         raise HTTPException(status_code=403, detail="You can only update your own institution")
     
     update_data = institution_data.model_dump(exclude_unset=True)
+    update_fields = list(update_data.keys())
+    
     for field, value in update_data.items():
         setattr(institution, field, value)
     
     db.commit()
     db.refresh(institution)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.UPDATE,
+        resource_type="institution",
+        resource_id=institution_id,
+        description=f"Muassasa ma'lumotlari yangilandi: {institution.name} (o'zgartirilgan maydonlar: {', '.join(update_fields)})",
+        request=request,
+    )
+    
     return institution
 
 
@@ -90,14 +107,29 @@ async def delete_institution(
     institution_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """Muassasani o'chirish (faqat admin)"""
     institution = db.query(Institution).filter(Institution.id == institution_id).first()
     if not institution:
         raise HTTPException(status_code=404, detail="Institution not found")
     
+    institution_name = institution.name
+    
     # Soft delete - is_active = False
     institution.is_active = False
     db.commit()
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.DELETE,
+        resource_type="institution",
+        resource_id=institution_id,
+        description=f"Muassasa o'chirildi: {institution_name}",
+        request=request,
+    )
+    
     return {"message": "Institution deleted successfully"}
 

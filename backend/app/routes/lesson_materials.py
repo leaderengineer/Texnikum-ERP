@@ -138,6 +138,17 @@ async def create_lesson_material(
     db.commit()
     db.refresh(material)
     
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.CREATE,
+        resource_type="lesson_material",
+        resource_id=material.id,
+        description=f"Yangi dars materiali yuklandi: {title} ({subject}, {group}, {department})",
+        request=request,
+    )
+    
     return material
 
 
@@ -245,6 +256,7 @@ async def update_lesson_material(
     material_data: LessonMaterialUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Dars materiali ma'lumotlarini yangilash"""
     material = db.query(LessonMaterial).filter(
@@ -260,11 +272,25 @@ async def update_lesson_material(
         raise HTTPException(status_code=403, detail="You don't have permission to edit this material")
     
     update_data = material_data.model_dump(exclude_unset=True)
+    update_fields = list(update_data.keys())
+    
     for field, value in update_data.items():
         setattr(material, field, value)
     
     db.commit()
     db.refresh(material)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.UPDATE,
+        resource_type="lesson_material",
+        resource_id=material_id,
+        description=f"Dars materiali yangilandi: {material.title} (o'zgartirilgan maydonlar: {', '.join(update_fields)})",
+        request=request,
+    )
+    
     return material
 
 
@@ -273,6 +299,7 @@ async def delete_lesson_material(
     material_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Dars materialini o'chirish"""
     material = db.query(LessonMaterial).filter(
@@ -287,6 +314,8 @@ async def delete_lesson_material(
     if material.uploaded_by != current_user.id and current_user.role.value != "admin":
         raise HTTPException(status_code=403, detail="You don't have permission to delete this material")
     
+    material_title = material.title
+    
     # Faylni o'chirish
     file_path = Path(material.file_path)
     if file_path.exists():
@@ -297,5 +326,17 @@ async def delete_lesson_material(
     
     db.delete(material)
     db.commit()
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.DELETE,
+        resource_type="lesson_material",
+        resource_id=material_id,
+        description=f"Dars materiali o'chirildi: {material_title}",
+        request=request,
+    )
+    
     return {"message": "Lesson material deleted successfully"}
 

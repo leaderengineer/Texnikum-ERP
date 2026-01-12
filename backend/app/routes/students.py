@@ -11,6 +11,8 @@ from app.schemas.student import StudentCreate, StudentUpdate, StudentResponse
 from app.schemas.pagination import PaginatedResponse, PaginationMeta
 from app.auth import get_current_user, get_current_active_admin, get_password_hash
 from app.config import settings
+from app.models.audit_log import ActionType
+from app.utils.audit_log import create_audit_log
 
 router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
@@ -157,6 +159,17 @@ async def create_student(
         # Agar user yaratishda xatolik bo'lsa, talabani baribir qaytaramiz
         db.rollback()
 
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.CREATE,
+        resource_type="student",
+        resource_id=student.id,
+        description=f"Yangi talaba qo'shildi: {student.email} ({student.first_name} {student.last_name}, ID: {student.student_id})",
+        request=request,
+    )
+
     return student
 
 
@@ -166,6 +179,7 @@ async def update_student(
     student_data: StudentUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """Talaba ma'lumotlarini yangilash"""
     student = db.query(Student).filter(
@@ -176,11 +190,25 @@ async def update_student(
         raise HTTPException(status_code=404, detail="Student not found")
     
     update_data = student_data.model_dump(exclude_unset=True)
+    update_fields = list(update_data.keys())
+    
     for field, value in update_data.items():
         setattr(student, field, value)
     
     db.commit()
     db.refresh(student)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.UPDATE,
+        resource_type="student",
+        resource_id=student_id,
+        description=f"Talaba ma'lumotlari yangilandi: {student.email} (o'zgartirilgan maydonlar: {', '.join(update_fields)})",
+        request=request,
+    )
+    
     return student
 
 
@@ -189,6 +217,7 @@ async def delete_student(
     student_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """Talabani o'chirish"""
     from app.models.attendance import Attendance
@@ -199,6 +228,9 @@ async def delete_student(
     ).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
+    
+    student_email = student.email
+    student_name = f"{student.first_name} {student.last_name}"
     
     # Talabaga bog'liq attendance yozuvlarini o'chirish
     attendance_records = db.query(Attendance).filter(
@@ -211,5 +243,17 @@ async def delete_student(
     # Talabani o'chirish
     db.delete(student)
     db.commit()
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.DELETE,
+        resource_type="student",
+        resource_id=student_id,
+        description=f"Talaba o'chirildi: {student_email} ({student_name})",
+        request=request,
+    )
+    
     return {"message": "Student deleted successfully"}
 

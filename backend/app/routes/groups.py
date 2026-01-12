@@ -1,11 +1,13 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.models.group import Group
 from app.schemas.group import GroupCreate, GroupUpdate, GroupResponse
 from app.auth import get_current_user, get_current_active_admin
+from app.models.audit_log import ActionType
+from app.utils.audit_log import create_audit_log
 
 router = APIRouter()
 
@@ -53,6 +55,7 @@ async def create_group(
     group_data: GroupCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """Yangi guruh qo'shish"""
     # Name va code tekshirish (faqat joriy institution'da)
@@ -77,6 +80,18 @@ async def create_group(
     db.add(group)
     db.commit()
     db.refresh(group)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.CREATE,
+        resource_type="group",
+        resource_id=group.id,
+        description=f"Yangi guruh qo'shildi: {group.name} ({group.code})",
+        request=request,
+    )
+    
     return group
 
 
@@ -86,6 +101,7 @@ async def update_group(
     group_data: GroupUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """Guruh ma'lumotlarini yangilash"""
     group = db.query(Group).filter(
@@ -113,11 +129,25 @@ async def update_group(
             raise HTTPException(status_code=400, detail="Group code already exists")
     
     update_data = group_data.model_dump(exclude_unset=True)
+    update_fields = list(update_data.keys())
+    
     for field, value in update_data.items():
         setattr(group, field, value)
     
     db.commit()
     db.refresh(group)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.UPDATE,
+        resource_type="group",
+        resource_id=group_id,
+        description=f"Guruh ma'lumotlari yangilandi: {group.name} (o'zgartirilgan maydonlar: {', '.join(update_fields)})",
+        request=request,
+    )
+    
     return group
 
 
@@ -135,7 +165,21 @@ async def delete_group(
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     
+    group_name = group.name
+    
     db.delete(group)
     db.commit()
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.DELETE,
+        resource_type="group",
+        resource_id=group_id,
+        description=f"Guruh o'chirildi: {group_name}",
+        request=request,
+    )
+    
     return {"message": "Group deleted successfully"}
 

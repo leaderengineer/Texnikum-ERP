@@ -1,13 +1,18 @@
 from typing import List, Optional
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import get_db
 from app.models.user import User
 from app.models.book import Book, BookBorrow
+from app.models.audit_log import ActionType
 from app.schemas.book import BookCreate, BookUpdate, BookResponse, BookBorrowCreate
 from app.auth import get_current_user, get_current_active_admin
+from app.utils.audit_log import create_audit_log
+
+# Request type hint uchun
+from fastapi import Request
 
 router = APIRouter()
 
@@ -75,6 +80,7 @@ async def create_book(
     book_data: BookCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """Yangi kitob qo'shish"""
     # ISBN tekshirish
@@ -86,6 +92,18 @@ async def create_book(
     db.add(book)
     db.commit()
     db.refresh(book)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.CREATE,
+        resource_type="book",
+        resource_id=book.id,
+        description=f"Yangi kitob qo'shildi: {book.title} ({book.author}, ISBN: {book.isbn})",
+        request=request,
+    )
+    
     return book
 
 
@@ -95,6 +113,7 @@ async def update_book(
     book_data: BookUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """Kitob ma'lumotlarini yangilash"""
     book = db.query(Book).filter(Book.id == book_id).first()
@@ -102,11 +121,25 @@ async def update_book(
         raise HTTPException(status_code=404, detail="Book not found")
     
     update_data = book_data.model_dump(exclude_unset=True)
+    update_fields = list(update_data.keys())
+    
     for field, value in update_data.items():
         setattr(book, field, value)
     
     db.commit()
     db.refresh(book)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.UPDATE,
+        resource_type="book",
+        resource_id=book_id,
+        description=f"Kitob ma'lumotlari yangilandi: {book.title} (o'zgartirilgan maydonlar: {', '.join(update_fields)})",
+        request=request,
+    )
+    
     return book
 
 
@@ -115,14 +148,29 @@ async def delete_book(
     book_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_admin),
+    request: Request = None,
 ):
     """Kitobni o'chirish"""
     book = db.query(Book).filter(Book.id == book_id).first()
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
     
+    book_title = book.title
+    
     db.delete(book)
     db.commit()
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.DELETE,
+        resource_type="book",
+        resource_id=book_id,
+        description=f"Kitob o'chirildi: {book_title}",
+        request=request,
+    )
+    
     return {"message": "Book deleted successfully"}
 
 
@@ -131,6 +179,7 @@ async def borrow_book(
     borrow_data: BookBorrowCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Kitob olish"""
     book = db.query(Book).filter(Book.id == borrow_data.book_id).first()
@@ -151,6 +200,18 @@ async def borrow_book(
     db.commit()
     db.refresh(borrow)
     
+    # Audit log
+    borrower_info = f"Talaba ID: {borrow_data.student_id}" if borrow_data.student_id else f"O'qituvchi ID: {borrow_data.teacher_id}"
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.CREATE,
+        resource_type="book_borrow",
+        resource_id=borrow.id,
+        description=f"Kitob olindi: {book.title} ({borrower_info})",
+        request=request,
+    )
+    
     return {"message": "Book borrowed successfully", "borrow_id": borrow.id}
 
 
@@ -159,6 +220,7 @@ async def return_book(
     borrow_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Kitobni qaytarish"""
     borrow = db.query(BookBorrow).filter(BookBorrow.id == borrow_id).first()
@@ -179,6 +241,18 @@ async def return_book(
     book.borrowed_copies -= 1
     
     db.commit()
+    
+    # Audit log
+    borrower_info = f"Talaba ID: {borrow.student_id}" if borrow.student_id else f"O'qituvchi ID: {borrow.teacher_id}"
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.UPDATE,
+        resource_type="book_borrow",
+        resource_id=borrow_id,
+        description=f"Kitob qaytarildi: {book.title} ({borrower_info})",
+        request=request,
+    )
     
     return {"message": "Book returned successfully"}
 

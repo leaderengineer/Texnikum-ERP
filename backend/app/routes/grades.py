@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from datetime import date
 from app.database import get_db
@@ -9,6 +9,8 @@ from app.models.student import Student
 from app.models.attendance import Attendance
 from app.schemas.grade import GradeCreate, GradeUpdate, GradeResponse
 from app.auth import get_current_user
+from app.models.audit_log import ActionType
+from app.utils.audit_log import create_audit_log
 
 router = APIRouter()
 
@@ -86,6 +88,7 @@ async def create_grade(
     grade_data: GradeCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Yangi baho qo'shish"""
     # Talaba mavjudligini tekshirish
@@ -129,6 +132,18 @@ async def create_grade(
         existing.description = grade_data.description
         db.commit()
         db.refresh(existing)
+        
+        # Audit log
+        create_audit_log(
+            db=db,
+            user=current_user,
+            action=ActionType.UPDATE,
+            resource_type="grade",
+            resource_id=existing.id,
+            description=f"Baho yangilandi: Talaba ID {grade_data.student_id}, {grade_data.subject}, {grade_data.date} - {grade_data.grade}",
+            request=request,
+        )
+        
         return existing
     else:
         # Yangi yaratish
@@ -138,6 +153,18 @@ async def create_grade(
         db.add(grade)
         db.commit()
         db.refresh(grade)
+        
+        # Audit log
+        create_audit_log(
+            db=db,
+            user=current_user,
+            action=ActionType.CREATE,
+            resource_type="grade",
+            resource_id=grade.id,
+            description=f"Yangi baho qo'shildi: Talaba ID {grade_data.student_id}, {grade_data.subject}, {grade_data.date} - {grade_data.grade}",
+            request=request,
+        )
+        
         return grade
 
 
@@ -147,6 +174,7 @@ async def update_grade(
     grade_data: GradeUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Bahoni yangilash"""
     grade = db.query(Grade).filter(
@@ -158,11 +186,25 @@ async def update_grade(
         raise HTTPException(status_code=404, detail="Grade not found")
     
     update_data = grade_data.model_dump(exclude_unset=True)
+    update_fields = list(update_data.keys())
+    
     for field, value in update_data.items():
         setattr(grade, field, value)
     
     db.commit()
     db.refresh(grade)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.UPDATE,
+        resource_type="grade",
+        resource_id=grade_id,
+        description=f"Baho yangilandi: Talaba ID {grade.student_id}, {grade.subject} (o'zgartirilgan maydonlar: {', '.join(update_fields)})",
+        request=request,
+    )
+    
     return grade
 
 
@@ -181,8 +223,22 @@ async def delete_grade(
     if not grade:
         raise HTTPException(status_code=404, detail="Grade not found")
     
+    grade_info = f"Talaba ID {grade.student_id}, {grade.subject}, {grade.date}"
+    
     db.delete(grade)
     db.commit()
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.DELETE,
+        resource_type="grade",
+        resource_id=grade_id,
+        description=f"Baho o'chirildi: {grade_info}",
+        request=request,
+    )
+    
     return {"message": "Grade deleted successfully"}
 
 

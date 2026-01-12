@@ -62,6 +62,7 @@ export function Attendance() {
   const [geolocationEnabled, setGeolocationEnabled] = useState(false); // Institution geolocation sozlamasi
   const [geolocationError, setGeolocationError] = useState(null); // Geolocation xatolik ma'lumotlari
   const [institutionName, setInstitutionName] = useState(''); // Muassasa nomi
+  const [scheduleCheckError, setScheduleCheckError] = useState(null); // Dars vaqti tekshiruv xatolik
 
   // Institution geolocation sozlamalarini yuklash
   useEffect(() => {
@@ -143,12 +144,12 @@ export function Attendance() {
   // Fanlarni yangilash (dars materiallari yangilanganda)
   useEffect(() => {
     const refreshSubjects = async () => {
-      try {
+    try {
         const materialsResponse = await lessonMaterialsAPI.getAll({ limit: 1000 });
         const materialsData = materialsResponse.data || [];
         const uniqueSubjects = [...new Set(materialsData.map(m => m.subject).filter(Boolean))].sort();
         setSubjects(uniqueSubjects);
-      } catch (error) {
+    } catch (error) {
         console.error('Fanlarni yangilashda xatolik:', error);
       }
     };
@@ -242,6 +243,143 @@ export function Attendance() {
       setLoading(false);
     }
   }, [selectedDate, selectedGroup, selectedSubject, activeTab]);
+
+  // Dars vaqtini tekshirish funksiyasi (useEffect dan oldin e'lon qilish kerak)
+  const checkScheduleTime = useCallback(async () => {
+    // Admin uchun cheklov yo'q
+    if (user?.role === 'admin') {
+      return { allowed: true };
+    }
+
+    // O'qituvchi uchun dars vaqtini tekshirish
+    if (user?.role === 'teacher') {
+      if (!selectedGroup || !selectedSubject || !selectedDate) {
+        return { allowed: false, message: 'Guruh, fan va sana tanlanishi kerak' };
+      }
+
+      try {
+        // Hafta kunini aniqlash
+        const dateObj = new Date(selectedDate);
+        const dayNames = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
+        const dayName = dayNames[dateObj.getDay()];
+
+        // Dars jadvalini olish
+        const schedulesResponse = await schedulesAPI.getAll({
+          group: selectedGroup,
+          day: dayName,
+        });
+        const schedules = schedulesResponse.data || [];
+
+        // Faqat fan va guruh bo'yicha tekshirish (o'qituvchi nomi shart emas)
+        // Chunki bir guruhda bir fan uchun bir nechta o'qituvchi bo'lishi mumkin
+        const matchingSchedule = schedules.find(
+          (schedule) => {
+            // Fan nomini case-insensitive solishtirish
+            const scheduleSubject = (schedule.subject || '').trim().toLowerCase();
+            const selectedSubjectLower = (selectedSubject || '').trim().toLowerCase();
+            const matches = scheduleSubject === selectedSubjectLower;
+            
+            // Debug log (keyinroq o'chiriladi)
+            if (!matches && scheduleSubject.includes(selectedSubjectLower.substring(0, 3))) {
+              console.log('Fan nomi qisman mos kelmoqda:', {
+                scheduleSubject,
+                selectedSubjectLower,
+                schedule: schedule
+              });
+            }
+            
+            return matches;
+          }
+        );
+        
+        // Debug log
+        if (!matchingSchedule && schedules.length > 0) {
+          console.log('Dars jadvali tekshiruvi:', {
+            selectedGroup,
+            selectedSubject,
+            selectedSubjectLower: (selectedSubject || '').trim().toLowerCase(),
+            dayName,
+            schedulesCount: schedules.length,
+            availableSubjects: schedules.map(s => s.subject),
+            schedules: schedules.map(s => ({ 
+              subject: s.subject, 
+              subjectLower: (s.subject || '').trim().toLowerCase(),
+              teacher: s.teacher, 
+              group: s.group, 
+              day: s.day 
+            }))
+          });
+        }
+
+        if (!matchingSchedule) {
+          return {
+            allowed: false,
+            message: `Sizning ${selectedSubject} fanidagi darsingiz ${dayName} kuni ${selectedGroup} guruhida mavjud emas.`,
+          };
+        }
+
+        // Dars vaqtini parse qilish (09:00-10:30 formatida)
+        const timeRange = matchingSchedule.time;
+        const [startTime, endTime] = timeRange.split('-').map((t) => t.trim());
+
+        // Joriy vaqtni olish
+        const now = new Date();
+        const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+        // Vaqtni solishtirish uchun minutlarga o'tkazish
+        const timeToMinutes = (timeStr) => {
+          const [hours, minutes] = timeStr.split(':').map(Number);
+          return hours * 60 + minutes;
+        };
+
+        const currentMinutes = timeToMinutes(currentTime);
+        const startMinutes = timeToMinutes(startTime);
+        const endMinutes = timeToMinutes(endTime);
+
+        // Dars vaqti hali boshlanmagan
+        if (currentMinutes < startMinutes) {
+          return {
+            allowed: false,
+            message: `Dars vaqti hali boshlanmagan. Dars ${startTime} da boshlanadi.`,
+          };
+        }
+
+        // Dars vaqti tugagan
+        if (currentMinutes > endMinutes) {
+          return {
+            allowed: false,
+            message: `Dars vaqti tugagan. Dars ${endTime} da tugagan.`,
+          };
+        }
+
+        // Dars vaqtida
+        return { allowed: true };
+      } catch (error) {
+        console.error('Dars jadvalini tekshirishda xatolik:', error);
+        return {
+          allowed: false,
+          message: 'Dars jadvalini tekshirishda xatolik yuz berdi.',
+        };
+      }
+    }
+
+    return { allowed: true };
+  }, [user, selectedGroup, selectedSubject, selectedDate]);
+
+  // O'qituvchi uchun dars vaqtini real-time tekshirish
+  useEffect(() => {
+    if (user?.role === 'teacher' && selectedGroup && selectedSubject && selectedDate && activeTab === 'attendance') {
+      checkScheduleTime().then((result) => {
+        if (!result.allowed) {
+          setScheduleCheckError(result.message);
+        } else {
+          setScheduleCheckError(null);
+        }
+      });
+    } else {
+      setScheduleCheckError(null);
+    }
+  }, [selectedGroup, selectedSubject, selectedDate, activeTab, user, checkScheduleTime]);
 
   // Baholash uchun kurs tanlanganda, yo'nalish va guruhlarni tozalash
   useEffect(() => {
@@ -586,6 +724,15 @@ export function Attendance() {
   const handleSave = async () => {
     try {
       setLoading(true);
+      setScheduleCheckError(null);
+
+      // O'qituvchi uchun dars vaqtini tekshirish
+      const scheduleCheck = await checkScheduleTime();
+      if (!scheduleCheck.allowed) {
+        setScheduleCheckError(scheduleCheck.message);
+        setLoading(false);
+        return;
+      }
       
       // O'qituvchi bo'lsa va geolocation yoqilgan bo'lsa, geolocation olish
       let location = null;
@@ -795,7 +942,11 @@ export function Attendance() {
               <Download className="mr-2 h-4 w-4" />
               <span className="hidden sm:inline">Eksport</span>
             </Button>
-            <Button onClick={handleSave} disabled={loading || !selectedGroup || !selectedSubject || attendance.length === 0} className="flex-1 sm:flex-none touch-manipulation">
+            <Button 
+              onClick={handleSave} 
+              disabled={loading || !selectedGroup || !selectedSubject || attendance.length === 0 || (user?.role === 'teacher' && scheduleCheckError)} 
+              className="flex-1 sm:flex-none touch-manipulation"
+            >
               <Save className="mr-2 h-4 w-4" />
               {loading ? 'Saqlanmoqda...' : 'Saqlash'}
             </Button>
@@ -833,27 +984,41 @@ export function Attendance() {
         </CardContent>
       </Card>
 
-      {/* Davomat Tab */}
-      {activeTab === 'attendance' && (
-        <>
-          {/* Geolocation Warning/Info */}
-          {user?.role === 'teacher' && geolocationEnabled && (
-            <Card className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
-              <CardContent className="pt-4">
-                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
-                  <MapPin className="h-5 w-5 shrink-0" />
-                  <p className="text-sm font-medium">
-                    Geolocation cheklovi yoqilgan. Davomat olish uchun muassasa radius ichida bo'lishingiz kerak.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Filters */}
-          <Card>
-            <CardContent className="pt-4 sm:pt-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
+                  {/* Davomat Tab */}
+                  {activeTab === 'attendance' && (
+                    <>
+                      {/* Geolocation Warning/Info */}
+                      {user?.role === 'teacher' && geolocationEnabled && (
+                        <Card className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
+                          <CardContent className="pt-4">
+                            <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                              <MapPin className="h-5 w-5 shrink-0" />
+                              <p className="text-sm font-medium">
+                                Geolocation cheklovi yoqilgan. Davomat olish uchun muassasa radius ichida bo'lishingiz kerak.
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+
+                      {/* Dars vaqti xatolik xabari */}
+                      {scheduleCheckError && (
+                        <Card className="border-red-500 bg-red-50 dark:bg-red-950/20">
+                          <CardContent className="pt-4">
+                            <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
+                              <XCircle className="h-5 w-5 shrink-0" />
+                              <p className="text-sm font-medium">
+                                {scheduleCheckError}
+                              </p>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                      
+                      {/* Filters */}
+                      <Card className="overflow-visible">
+            <CardContent className="pt-4 sm:pt-6 overflow-visible">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4 overflow-visible">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -876,7 +1041,7 @@ export function Attendance() {
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
-                <div>
+                <div className="relative overflow-visible">
                   <Select
                     value={selectedCourse}
                     onChange={(e) => {
@@ -885,7 +1050,7 @@ export function Attendance() {
                       setSelectedGroup('');
                       setAttendance([]);
                     }}
-                    className="w-full"
+                    className="w-full min-w-0"
                     disabled={loadingFilters}
                   >
                     <option value="">Kursni tanlang...</option>
@@ -965,105 +1130,105 @@ export function Attendance() {
 
           {/* Statistics */}
           {attendance.length > 0 && (
-            <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Jami talabalar</p>
-                      <p className="text-2xl font-bold">{stats.total}</p>
-                    </div>
-                    <Users className="h-8 w-8 text-primary opacity-50" />
+          <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Jami talabalar</p>
+                    <p className="text-2xl font-bold">{stats.total}</p>
                   </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Qatnashgan</p>
-                      <p className="text-2xl font-bold text-green-600">{stats.present}</p>
-                    </div>
-                    <CheckCircle2 className="h-8 w-8 text-green-600 opacity-50" />
+                  <Users className="h-8 w-8 text-primary opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Qatnashgan</p>
+                    <p className="text-2xl font-bold text-green-600">{stats.present}</p>
                   </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Qatnashmagan</p>
-                      <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
-                    </div>
-                    <XCircle className="h-8 w-8 text-red-600 opacity-50" />
+                  <CheckCircle2 className="h-8 w-8 text-green-600 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Qatnashmagan</p>
+                    <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
                   </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Davomat foizi</p>
-                      <p className="text-2xl font-bold text-primary">{stats.rate}%</p>
-                    </div>
-                    <Calendar className="h-8 w-8 text-primary opacity-50" />
+                  <XCircle className="h-8 w-8 text-red-600 opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Davomat foizi</p>
+                    <p className="text-2xl font-bold text-primary">{stats.rate}%</p>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                  <Calendar className="h-8 w-8 text-primary opacity-50" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
           )}
 
           {/* Attendance Table */}
           {selectedGroup && selectedSubject && (
-            <Card>
-              <CardHeader className="bg-muted/50">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <BookOpen className="h-5 w-5" />
-                      Davomat jurnali
-                    </CardTitle>
-                    <CardDescription className="mt-1">
-                      {formatDate(selectedDate)} • {selectedGroup} • {selectedSubject}
-                    </CardDescription>
-                  </div>
-                  {attendance.length > 0 && (
-                    <Badge variant="secondary">
-                      {stats.present}/{stats.total} qatnashgan
-                    </Badge>
-                  )}
+          <Card>
+            <CardHeader className="bg-muted/50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    Davomat jurnali
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    {formatDate(selectedDate)} • {selectedGroup} • {selectedSubject}
+                  </CardDescription>
                 </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                {loading ? (
-                  <div className="py-12 text-center text-muted-foreground">Yuklanmoqda...</div>
+                  {attendance.length > 0 && (
+                <Badge variant="secondary">
+                  {stats.present}/{stats.total} qatnashgan
+                </Badge>
+                  )}
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="py-12 text-center text-muted-foreground">Yuklanmoqda...</div>
                 ) : attendance.length === 0 ? (
                   <div className="py-12 text-center text-muted-foreground">
                     Bu guruhda talabalar topilmadi yoki ma'lumotlar yuklanmoqda...
                   </div>
-                ) : (
-                  <div className="overflow-x-auto -mx-3 sm:mx-0">
-                    <table className="w-full border-collapse min-w-[600px]">
-                      <thead className="bg-muted/50 border-b sticky top-0 z-20">
-                        <tr>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky left-0 bg-muted/50 z-30 border-r min-w-[40px] sm:min-w-[50px]">
-                            №
-                          </th>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky left-[40px] sm:left-[50px] bg-muted/50 z-30 border-r min-w-[80px] sm:min-w-[100px]">
-                            Talaba ID
-                          </th>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky left-[120px] sm:left-[150px] bg-muted/50 z-30 border-r min-w-[150px] sm:min-w-[200px]">
-                            Familiya va Ism
-                          </th>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[100px] sm:min-w-[140px]">
-                            Davomat
-                          </th>
-                          <th className="px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[200px] sm:min-w-[280px]">
-                            Amallar
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-background divide-y divide-border">
+              ) : (
+                <div className="overflow-x-auto -mx-3 sm:mx-0">
+                  <table className="w-full border-collapse min-w-[600px]">
+                    <thead className="bg-muted/50 border-b sticky top-0 z-20">
+                      <tr>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky left-0 bg-muted/50 z-30 border-r min-w-[40px] sm:min-w-[50px]">
+                          №
+                        </th>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky left-[40px] sm:left-[50px] bg-muted/50 z-30 border-r min-w-[80px] sm:min-w-[100px]">
+                          Talaba ID
+                        </th>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider sticky left-[120px] sm:left-[150px] bg-muted/50 z-30 border-r min-w-[150px] sm:min-w-[200px]">
+                          Familiya va Ism
+                        </th>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[100px] sm:min-w-[140px]">
+                          Davomat
+                        </th>
+                        <th className="px-2 sm:px-4 py-2 sm:py-3 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[200px] sm:min-w-[280px]">
+                          Amallar
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-background divide-y divide-border">
                         {attendance.map((item, index) => {
                           const config = statusConfig[item.status];
                           return (
@@ -1113,12 +1278,12 @@ export function Attendance() {
                             </tr>
                           );
                         })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
           )}
 
           {(!selectedCourse || !selectedDepartment || !selectedGroup || !selectedSubject) && (
@@ -1139,9 +1304,9 @@ export function Attendance() {
       {activeTab === 'grades' && (
         <>
           {/* Filters for Grading */}
-          <Card>
-            <CardContent className="pt-4 sm:pt-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
+          <Card className="overflow-visible">
+            <CardContent className="pt-4 sm:pt-6 overflow-visible">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4 overflow-visible">
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -1164,7 +1329,7 @@ export function Attendance() {
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
-                <div>
+                <div className="relative overflow-visible">
                   <Select
                     value={selectedGradeCourse}
                     onChange={(e) => {
@@ -1174,7 +1339,7 @@ export function Attendance() {
                       setGradeStudents([]);
                       setAttendanceSaved(false);
                     }}
-                    className="w-full"
+                    className="w-full min-w-0"
                     disabled={loadingFilters}
                   >
                     <option value="">Kursni tanlang...</option>
@@ -1316,33 +1481,33 @@ export function Attendance() {
                       </thead>
                       <tbody className="bg-background divide-y divide-border">
                         {gradeStudents.map((student, index) => (
-                          <tr
-                            key={student.id}
-                            className="hover:bg-muted/30 transition-colors border-b border-border"
-                          >
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm font-semibold sticky left-0 bg-background z-20 border-r">
-                              {index + 1}
-                            </td>
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm font-medium sticky left-[40px] sm:left-[50px] bg-background z-20 border-r">
-                              {student.studentId}
-                            </td>
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm sticky left-[120px] sm:left-[150px] bg-background z-20 border-r">
-                              {student.studentName}
-                            </td>
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-center">
+                            <tr
+                              key={student.id}
+                              className="hover:bg-muted/30 transition-colors border-b border-border"
+                            >
+                              <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm font-semibold sticky left-0 bg-background z-20 border-r">
+                                {index + 1}
+                              </td>
+                              <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm font-medium sticky left-[40px] sm:left-[50px] bg-background z-20 border-r">
+                                {student.studentId}
+                              </td>
+                              <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-xs sm:text-sm sticky left-[120px] sm:left-[150px] bg-background z-20 border-r">
+                                {student.studentName}
+                              </td>
+                              <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-center">
                               <Select
                                 value={student.grade ? student.grade.toString() : ''}
-                                onChange={(e) => {
+                                  onChange={(e) => {
                                   const newGrade = e.target.value ? parseFloat(e.target.value) : null;
-                                  setGradeStudents(gradeStudents.map(s => 
+                                    setGradeStudents(gradeStudents.map(s => 
                                     s.id === student.id ? { ...s, grade: newGrade } : s
-                                  ));
+                                    ));
                                   if (newGrade) {
                                     handleGradeChange(student.id, newGrade, student.gradeType || 'oral');
-                                  }
-                                }}
+                                    }
+                                  }}
                                 className="w-24 mx-auto"
-                                disabled={!attendanceSaved}
+                                  disabled={!attendanceSaved}
                               >
                                 <option value="">Baho tanlang</option>
                                 <option value="2">2</option>
@@ -1350,30 +1515,30 @@ export function Attendance() {
                                 <option value="4">4</option>
                                 <option value="5">5</option>
                               </Select>
-                            </td>
-                            <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-center">
-                              <Select
-                                value={student.gradeType || 'oral'}
-                                onChange={(e) => {
-                                  const newType = e.target.value;
-                                  setGradeStudents(gradeStudents.map(s => 
-                                    s.id === student.id ? { ...s, gradeType: newType } : s
-                                  ));
-                                  if (student.grade) {
-                                    handleGradeChange(student.id, student.grade, newType);
-                                  }
-                                }}
-                                className="w-full max-w-[150px] mx-auto"
-                                disabled={!attendanceSaved}
-                              >
-                                <option value="oral">Og'zaki</option>
-                                <option value="written">Yozma</option>
-                                <option value="practical">Amaliy</option>
-                                <option value="test">Test</option>
-                                <option value="exam">Imtihon</option>
-                              </Select>
-                            </td>
-                          </tr>
+                              </td>
+                              <td className="px-2 sm:px-4 py-2 sm:py-3 whitespace-nowrap text-center">
+                                <Select
+                                  value={student.gradeType || 'oral'}
+                                  onChange={(e) => {
+                                    const newType = e.target.value;
+                                    setGradeStudents(gradeStudents.map(s => 
+                                      s.id === student.id ? { ...s, gradeType: newType } : s
+                                    ));
+                                    if (student.grade) {
+                                      handleGradeChange(student.id, student.grade, newType);
+                                    }
+                                  }}
+                                  className="w-full max-w-[150px] mx-auto"
+                                  disabled={!attendanceSaved}
+                                >
+                                  <option value="oral">Og'zaki</option>
+                                  <option value="written">Yozma</option>
+                                  <option value="practical">Amaliy</option>
+                                  <option value="test">Test</option>
+                                  <option value="exam">Imtihon</option>
+                                </Select>
+                              </td>
+                            </tr>
                         ))}
                       </tbody>
                     </table>

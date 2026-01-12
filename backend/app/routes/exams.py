@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from datetime import datetime, timedelta
@@ -13,6 +13,8 @@ from app.schemas.exam import (
 )
 from app.auth import get_current_user
 from app.models.user import UserRole
+from app.models.audit_log import ActionType
+from app.utils.audit_log import create_audit_log
 import json
 
 router = APIRouter()
@@ -179,6 +181,7 @@ async def create_exam(
     exam_data: ExamCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Yangi imtihon yaratish (Faqat o'qituvchi)"""
     if current_user.role != UserRole.TEACHER:
@@ -200,6 +203,17 @@ async def create_exam(
     db.commit()
     db.refresh(exam)
     
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.CREATE,
+        resource_type="exam",
+        resource_id=exam.id,
+        description=f"Yangi imtihon yaratildi: {exam.title} ({exam.subject}, {exam.group})",
+        request=request,
+    )
+    
     return exam
 
 
@@ -209,6 +223,7 @@ async def update_exam(
     exam_data: ExamUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Imtihonni yangilash"""
     exam = db.query(Exam).filter(
@@ -223,6 +238,8 @@ async def update_exam(
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     
     update_data = exam_data.model_dump(exclude_unset=True)
+    update_fields = list(update_data.keys())
+    
     if "questions" in update_data:
         exam.questions = update_data["questions"]
         update_data.pop("questions")
@@ -233,6 +250,17 @@ async def update_exam(
     db.commit()
     db.refresh(exam)
     
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.UPDATE,
+        resource_type="exam",
+        resource_id=exam_id,
+        description=f"Imtihon yangilandi: {exam.title} (o'zgartirilgan maydonlar: {', '.join(update_fields)})",
+        request=request,
+    )
+    
     return exam
 
 
@@ -241,6 +269,7 @@ async def delete_exam(
     exam_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Imtihonni o'chirish"""
     exam = db.query(Exam).filter(
@@ -254,8 +283,21 @@ async def delete_exam(
     if current_user.role == UserRole.TEACHER and exam.created_by != current_user.id:
         raise HTTPException(status_code=403, detail="Ruxsat yo'q")
     
+    exam_title = exam.title
+    
     db.delete(exam)
     db.commit()
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.DELETE,
+        resource_type="exam",
+        resource_id=exam_id,
+        description=f"Imtihon o'chirildi: {exam_title}",
+        request=request,
+    )
     
     return {"message": "Imtihon o'chirildi"}
 
@@ -266,6 +308,7 @@ async def start_exam_attempt(
     exam_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Imtihonni boshlash"""
     exam = db.query(Exam).filter(Exam.id == exam_id).first()
@@ -318,6 +361,17 @@ async def start_exam_attempt(
     db.commit()
     db.refresh(attempt)
     
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.CREATE,
+        resource_type="exam_attempt",
+        resource_id=attempt.id,
+        description=f"Imtihon boshlandi: {exam.title} (Talaba: {student.first_name} {student.last_name}, Urinish: {attempt.attempt_number})",
+        request=request,
+    )
+    
     return attempt
 
 
@@ -327,6 +381,7 @@ async def submit_exam_attempt(
     submit_data: ExamAttemptSubmit,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Imtihonni topshirish"""
     exam = db.query(Exam).filter(Exam.id == exam_id).first()
@@ -363,6 +418,17 @@ async def submit_exam_attempt(
     
     db.commit()
     db.refresh(attempt)
+    
+    # Audit log
+    create_audit_log(
+        db=db,
+        user=current_user,
+        action=ActionType.UPDATE,
+        resource_type="exam_attempt",
+        resource_id=attempt.id,
+        description=f"Imtihon topshirildi: {exam.title} (Talaba: {student.first_name} {student.last_name}, Ball: {score}/{exam.total_points}, Foiz: {percentage}%)",
+        request=request,
+    )
     
     return attempt
 
